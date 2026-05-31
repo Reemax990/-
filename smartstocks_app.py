@@ -529,43 +529,53 @@ def make_chart(hist):
 # ─────────────────────────────────────────────
 # دوال مساعدة للعرض
 # ─────────────────────────────────────────────
+def conf_to_text(conf):
+    """تحويل نسبة الثقة لكلمة واضحة"""
+    if conf >= 75:
+        return 'عالية جداً'
+    elif conf >= 60:
+        return 'عالية'
+    elif conf >= 50:
+        return 'متوسطة'
+    else:
+        return 'منخفضة'
+
+def top_tendency(probs):
+    """إيجاد أعلى احتمال وتحويله لجملة واضحة"""
+    max_label = max(probs, key=probs.get)
+    ar = {'BUY': 'الشراء', 'SELL': 'البيع', 'HOLD': 'الانتظار'}
+    return f"النموذج يميل نحو {ar.get(max_label, '')}"
+
 def rec_card_html(data):
-    label    = data['label']
-    conf     = data['confidence']
-    horizon  = data['horizon_ar']
-    days     = data['days']
-    probs    = data['probs']
+    label   = data['label']
+    conf    = data['confidence']
+    horizon = data['horizon_ar']
+    probs   = data['probs']
 
-    css_class = {'BUY': 'rec-buy', 'SELL': 'rec-sell', 'HOLD': 'rec-hold'}.get(label, 'rec-hold')
-    ar_label  = {'BUY': '🟢 شراء', 'SELL': '🔴 بيع', 'HOLD': '🟡 انتظار'}.get(label, label)
-    bar_class = {'BUY': 'conf-bar-fill-buy', 'SELL': 'conf-bar-fill-sell', 'HOLD': 'conf-bar-fill-hold'}.get(label, 'conf-bar-fill-hold')
+    css_class  = {'BUY': 'rec-buy', 'SELL': 'rec-sell', 'HOLD': 'rec-hold'}.get(label, 'rec-hold')
+    ar_label   = {'BUY': '🟢 شراء', 'SELL': '🔴 بيع', 'HOLD': '🟡 انتظار'}.get(label, label)
+    bar_class  = {'BUY': 'conf-bar-fill-buy', 'SELL': 'conf-bar-fill-sell', 'HOLD': 'conf-bar-fill-hold'}.get(label, 'conf-bar-fill-hold')
+    conf_word  = conf_to_text(conf)
+    tendency   = top_tendency(probs)
 
-    buy_p  = probs.get('BUY', 0)
-    hold_p = probs.get('HOLD', 0)
-    sell_p = probs.get('SELL', 0)
+    # لون كلمة الثقة
+    conf_color = {'عالية جداً': '#16a34a', 'عالية': '#16a34a',
+                  'متوسطة': '#d97706', 'منخفضة': '#dc2626'}.get(conf_word, '#6b7280')
 
     return f"""
     <div class="rec-card {css_class}">
-        <p class="rec-horizon">{horizon} <span style="font-weight:400;color:#9ca3af;font-size:0.85rem;">({days})</span></p>
+        <p class="rec-horizon">📅 {horizon}</p>
         <p class="rec-label">{ar_label}</p>
-        <p class="rec-conf">مستوى الثقة: <strong>{conf}%</strong></p>
+        <p style="font-size:0.95rem; color:#4b5563; margin:0.3rem 0;">{tendency}</p>
+        <div style="margin:1rem 0 0.3rem;">
+            <span style="font-size:0.9rem; color:#6b7280;">مستوى الثقة:</span>
+            <span style="font-size:1rem; font-weight:700; color:{conf_color}; margin-right:6px;">
+                {conf_word}
+            </span>
+        </div>
         <div class="conf-bar-wrap">
             <div class="conf-bar-bg">
                 <div class="{bar_class}" style="width:{conf}%;"></div>
-            </div>
-        </div>
-        <div class="probs-row">
-            <div class="prob-item">
-                <p class="prob-item-label">شراء</p>
-                <p class="prob-item-val" style="color:#16a34a;">{buy_p}%</p>
-            </div>
-            <div class="prob-item">
-                <p class="prob-item-label">انتظار</p>
-                <p class="prob-item-val" style="color:#d97706;">{hold_p}%</p>
-            </div>
-            <div class="prob-item">
-                <p class="prob-item-label">بيع</p>
-                <p class="prob-item-val" style="color:#dc2626;">{sell_p}%</p>
             </div>
         </div>
     </div>
@@ -707,19 +717,27 @@ if analyze and symbol:
         """, unsafe_allow_html=True)
 
         # ─── التوصيات ───
-        st.markdown('<p class="section-title">🤖 توصيات الذكاء الاصطناعي</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">🤖 توصية الذكاء الاصطناعي</p>', unsafe_allow_html=True)
+
+        # اختيار الأفق الزمني
+        horizon_choice = st.radio(
+            'اختر الفترة الزمنية:',
+            options=['أسبوع', 'شهر', '3 أشهر'],
+            horizontal=True,
+            help='اختر الفترة التي تريد التنبؤ لها'
+        )
+        horizon_map = {'أسبوع': 'week', 'شهر': 'month', '3 أشهر': '3months'}
+        selected_key = horizon_map[horizon_choice]
 
         predictions = predict(symbol, models, market_data)
 
         if predictions is None:
             st.markdown('<div class="error-box">❌ تعذر توليد التوصيات لهذا السهم.</div>', unsafe_allow_html=True)
         else:
-            rc1, rc2, rc3 = st.columns(3)
-            cols_map = {'week': rc1, 'month': rc2, '3months': rc3}
-            for key, col in cols_map.items():
-                if key in predictions:
-                    with col:
-                        st.markdown(rec_card_html(predictions[key]), unsafe_allow_html=True)
+            if selected_key in predictions:
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.markdown(rec_card_html(predictions[selected_key]), unsafe_allow_html=True)
 
         # ─── الرسم البياني ───
         st.markdown('<p class="section-title">📊 الرسم البياني (آخر 90 يوم)</p>', unsafe_allow_html=True)
