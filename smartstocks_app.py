@@ -646,14 +646,21 @@ symbol = (selected_quick or symbol_raw).upper().strip()
 if selected_quick:
     analyze = True
 
+# ─── حفظ النتائج في session_state ───
+if 'predictions' not in st.session_state:
+    st.session_state.predictions = None
+if 'hist' not in st.session_state:
+    st.session_state.hist = None
+if 'info_data' not in st.session_state:
+    st.session_state.info_data = None
+if 'last_symbol' not in st.session_state:
+    st.session_state.last_symbol = None
+
 # ─── التحليل ───
 if analyze and symbol:
-
     market_data = get_market_data()
-
     with st.spinner(f'جاري تحليل سهم {symbol}...'):
         hist, info = fetch_display_data(symbol)
-
         if hist is None or hist.empty:
             st.markdown(f"""
             <div class="error-box">
@@ -662,6 +669,18 @@ if analyze and symbol:
             </div>
             """, unsafe_allow_html=True)
             st.stop()
+        # حفظ في session_state
+        st.session_state.hist        = hist
+        st.session_state.info_data   = info
+        st.session_state.predictions = predict(symbol, get_market_data())
+        st.session_state.last_symbol = symbol
+
+# عرض النتائج إذا موجودة
+if st.session_state.hist is not None:
+    hist   = st.session_state.hist
+    info   = st.session_state.info_data
+    symbol = st.session_state.last_symbol
+    if True:
 
         # معلومات السهم
         curr_price = float(hist['Close'].iloc[-1])
@@ -719,17 +738,15 @@ if analyze and symbol:
         # ─── التوصيات ───
         st.markdown('<p class="section-title">🤖 توصية الذكاء الاصطناعي</p>', unsafe_allow_html=True)
 
-        # اختيار الأفق الزمني
         horizon_choice = st.radio(
             'اختر الفترة الزمنية:',
             options=['أسبوع', 'شهر', '3 أشهر'],
             horizontal=True,
-            help='اختر الفترة التي تريد التنبؤ لها'
         )
-        horizon_map = {'أسبوع': 'week', 'شهر': 'month', '3 أشهر': '3months'}
+        horizon_map  = {'أسبوع': 'week', 'شهر': 'month', '3 أشهر': '3months'}
         selected_key = horizon_map[horizon_choice]
 
-        predictions = predict(symbol, models, market_data)
+        predictions = st.session_state.predictions
 
         if predictions is None:
             st.markdown('<div class="error-box">❌ تعذر توليد التوصيات لهذا السهم.</div>', unsafe_allow_html=True)
