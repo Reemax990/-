@@ -672,11 +672,11 @@ if analyze and symbol:
         # حفظ في session_state
         st.session_state.hist        = hist
         st.session_state.info_data   = info
-        st.session_state.predictions = predict(symbol, get_market_data())
+        st.session_state.predictions = predict(symbol, models, market_data)
         st.session_state.last_symbol = symbol
 
 # عرض النتائج إذا موجودة
-if st.session_state.hist is not None:
+if st.session_state.get('hist') is not None:
     hist   = st.session_state.hist
     info   = st.session_state.info_data
     symbol = st.session_state.last_symbol
