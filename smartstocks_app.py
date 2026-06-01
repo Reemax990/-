@@ -702,26 +702,110 @@ if st.session_state.get('hist') is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        # بطاقات المعلومات
-        market_cap  = info.get('marketCap', 0) if info else 0
-        week_high   = info.get('fiftyTwoWeekHigh', 0) if info else 0
-        week_low    = info.get('fiftyTwoWeekLow', 0) if info else 0
-        volume      = float(hist['Volume'].iloc[-1])
-        sector      = info.get('sector', '—') if info else '—'
+        # ─── معلومات السهم ───
+        market_cap = info.get('marketCap', 0) if info else 0
+        week_high  = info.get('fiftyTwoWeekHigh', 0) if info else 0
+        week_low   = info.get('fiftyTwoWeekLow', 0) if info else 0
+        volume     = float(hist['Volume'].iloc[-1])
 
-        mc1, mc2, mc3, mc4 = st.columns(4)
-        with mc1:
-            cap_str = f"${market_cap/1e9:.1f}B" if market_cap > 1e9 else (f"${market_cap/1e6:.0f}M" if market_cap else '—')
-            st.markdown(f'<div class="info-card"><p class="info-label">القيمة السوقية</p><p class="info-value">{cap_str}</p></div>', unsafe_allow_html=True)
-        with mc2:
-            st.markdown(f'<div class="info-card"><p class="info-label">أعلى 52 أسبوع</p><p class="info-value">${week_high:.2f}</p></div>', unsafe_allow_html=True)
-        with mc3:
-            st.markdown(f'<div class="info-card"><p class="info-label">أقل 52 أسبوع</p><p class="info-value">${week_low:.2f}</p></div>', unsafe_allow_html=True)
-        with mc4:
-            vol_str = f"{volume/1e6:.1f}M" if volume > 1e6 else f"{volume:,.0f}"
-            st.markdown(f'<div class="info-card"><p class="info-label">حجم التداول</p><p class="info-value">{vol_str}</p></div>', unsafe_allow_html=True)
+        # حجم الشركة
+        if market_cap > 1e12:
+            cap_str  = f"${market_cap/1e9:.0f}B"
+            cap_desc = "شركة ضخمة جداً 🏢"
+        elif market_cap > 1e9:
+            cap_str  = f"${market_cap/1e9:.1f}B"
+            cap_desc = "شركة كبيرة 🏢"
+        elif market_cap > 1e6:
+            cap_str  = f"${market_cap/1e6:.0f}M"
+            cap_desc = "شركة متوسطة 🏢"
+        else:
+            cap_str  = "—"
+            cap_desc = "—"
 
-        st.markdown('<br>', unsafe_allow_html=True)
+        # أعلى/أقل 52 أسبوع
+        if week_high > 0:
+            pct_from_high = ((curr_price - week_high) / week_high) * 100
+            high_desc = f"السهم أقل من قمته بـ {abs(pct_from_high):.0f}% 📉" if pct_from_high < 0 else "السهم عند قمته ⚠️"
+        else:
+            high_desc = "—"
+
+        if week_low > 0:
+            pct_from_low = ((curr_price - week_low) / week_low) * 100
+            low_desc = f"ارتفع {pct_from_low:.0f}% من أدنى نقطة 📈"
+        else:
+            low_desc = "—"
+
+        # حجم التداول
+        vol_str = f"{volume/1e6:.1f}M سهم"
+        avg_vol = info.get('averageVolume', 0) if info else 0
+        if avg_vol > 0:
+            vol_ratio = volume / avg_vol
+            if vol_ratio > 1.5:
+                vol_desc = "تداول مرتفع — اهتمام كبير 🔥"
+            elif vol_ratio < 0.5:
+                vol_desc = "تداول منخفض — اهتمام قليل 😴"
+            else:
+                vol_desc = "تداول طبيعي 📊"
+        else:
+            vol_desc = "📊"
+
+        st.markdown('<p class="section-title">📋 معلومات السهم</p>', unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="background:white; border-radius:20px; padding:1.5rem 2rem;
+                    border:1.5px solid #e2eaf5; margin-bottom:1.5rem;">
+
+            <div style="display:flex; flex-direction:column; gap:1rem;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
+                    <span style="font-size:1rem; color:#6b7280;">💰 سعر السهم الآن</span>
+                    <div style="text-align:left;">
+                        <span style="font-size:1.2rem; font-weight:700; color:#0a2463;">${curr_price:,.2f}</span>
+                        <span style="font-size:0.9rem; color:{'#16a34a' if change_pct >= 0 else '#dc2626'}; margin-right:8px;">
+                            {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
+                        </span>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
+                    <span style="font-size:1rem; color:#6b7280;">🏢 حجم الشركة</span>
+                    <div style="text-align:left;">
+                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">{cap_str}</span>
+                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{cap_desc}</span>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
+                    <span style="font-size:1rem; color:#6b7280;">📈 أعلى سعر في السنة</span>
+                    <div style="text-align:left;">
+                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">${week_high:.2f}</span>
+                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{high_desc}</span>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
+                    <span style="font-size:1rem; color:#6b7280;">📉 أقل سعر في السنة</span>
+                    <div style="text-align:left;">
+                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">${week_low:.2f}</span>
+                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{low_desc}</span>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:1rem; color:#6b7280;">📊 حجم التداول اليوم</span>
+                    <div style="text-align:left;">
+                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">{vol_str}</span>
+                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{vol_desc}</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # ─── التنبيه القانوني ───
         st.markdown("""
