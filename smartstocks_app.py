@@ -751,61 +751,54 @@ if st.session_state.get('hist') is not None:
 
         st.markdown('<p class="section-title">📋 معلومات السهم</p>', unsafe_allow_html=True)
 
-        st.markdown(f"""
-        <div style="background:white; border-radius:20px; padding:1.5rem 2rem;
-                    border:1.5px solid #e2eaf5; margin-bottom:1.5rem;">
+        r1c1, r1c2 = st.columns(2)
+        r2c1, r2c2 = st.columns(2)
+        r3c1, r3c2 = st.columns(2)
 
-            <div style="display:flex; flex-direction:column; gap:1rem;">
+        with r1c1:
+            color = "#16a34a" if change_pct >= 0 else "#dc2626"
+            st.markdown(f"""
+            <div class="info-card">
+                <p class="info-label">💰 سعر السهم الآن</p>
+                <p class="info-value">${curr_price:,.2f}</p>
+                <p style="font-size:0.85rem; color:{color}; margin:0;">
+                    {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
+                </p>
+            </div>""", unsafe_allow_html=True)
 
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
-                    <span style="font-size:1rem; color:#6b7280;">💰 سعر السهم الآن</span>
-                    <div style="text-align:left;">
-                        <span style="font-size:1.2rem; font-weight:700; color:#0a2463;">${curr_price:,.2f}</span>
-                        <span style="font-size:0.9rem; color:{'#16a34a' if change_pct >= 0 else '#dc2626'}; margin-right:8px;">
-                            {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
-                        </span>
-                    </div>
-                </div>
+        with r1c2:
+            st.markdown(f"""
+            <div class="info-card">
+                <p class="info-label">🏢 حجم الشركة</p>
+                <p class="info-value">{cap_str}</p>
+                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{cap_desc}</p>
+            </div>""", unsafe_allow_html=True)
 
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
-                    <span style="font-size:1rem; color:#6b7280;">🏢 حجم الشركة</span>
-                    <div style="text-align:left;">
-                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">{cap_str}</span>
-                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{cap_desc}</span>
-                    </div>
-                </div>
+        with r2c1:
+            st.markdown(f"""
+            <div class="info-card">
+                <p class="info-label">📈 أعلى سعر في السنة</p>
+                <p class="info-value">${week_high:.2f}</p>
+                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{high_desc}</p>
+            </div>""", unsafe_allow_html=True)
 
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
-                    <span style="font-size:1rem; color:#6b7280;">📈 أعلى سعر في السنة</span>
-                    <div style="text-align:left;">
-                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">${week_high:.2f}</span>
-                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{high_desc}</span>
-                    </div>
-                </div>
+        with r2c2:
+            st.markdown(f"""
+            <div class="info-card">
+                <p class="info-label">📉 أقل سعر في السنة</p>
+                <p class="info-value">${week_low:.2f}</p>
+                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{low_desc}</p>
+            </div>""", unsafe_allow_html=True)
 
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                            padding-bottom:0.8rem; border-bottom:1px solid #f3f4f6;">
-                    <span style="font-size:1rem; color:#6b7280;">📉 أقل سعر في السنة</span>
-                    <div style="text-align:left;">
-                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">${week_low:.2f}</span>
-                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{low_desc}</span>
-                    </div>
-                </div>
+        with r3c1:
+            st.markdown(f"""
+            <div class="info-card">
+                <p class="info-label">📊 حجم التداول اليوم</p>
+                <p class="info-value">{vol_str}</p>
+                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{vol_desc}</p>
+            </div>""", unsafe_allow_html=True)
 
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:1rem; color:#6b7280;">📊 حجم التداول اليوم</span>
-                    <div style="text-align:left;">
-                        <span style="font-size:1.1rem; font-weight:700; color:#0a2463;">{vol_str}</span>
-                        <span style="font-size:0.85rem; color:#6b7280; margin-right:8px;">{vol_desc}</span>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<br>', unsafe_allow_html=True)
 
         # ─── التنبيه القانوني ───
         st.markdown("""
