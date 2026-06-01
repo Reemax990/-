@@ -816,22 +816,53 @@ if st.session_state.get('hist') is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        r1c1, r1c2 = st.columns(2)
-        r2c1, r2c2 = st.columns(2)
-        r3c1, r3c2 = st.columns(2)
-
-        with r1c1:
-            st.markdown(info_card(icon_price, 'سعر السهم الآن', f'${curr_price:,.2f}',
-                f'{change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم',
-                '#16a34a' if change_pct >= 0 else '#dc2626'), unsafe_allow_html=True)
-        with r1c2:
-            st.markdown(info_card(icon_cap, 'حجم الشركة', cap_str, cap_desc, '#6b7280'), unsafe_allow_html=True)
-        with r2c1:
-            st.markdown(info_card(icon_high, 'أعلى سعر في السنة', f'${week_high:.2f}' if week_high else '—', high_desc, high_color), unsafe_allow_html=True)
-        with r2c2:
-            st.markdown(info_card(icon_low, 'أقل سعر في السنة', f'${week_low:.2f}' if week_low else '—', low_desc, low_color), unsafe_allow_html=True)
-        with r3c1:
-            st.markdown(info_card(icon_vol, 'حجم التداول اليوم', vol_str, vol_desc, vol_color), unsafe_allow_html=True)
+        # كاردز المعلومات — responsive للجوال والكمبيوتر
+        st.markdown(f"""
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:1rem;">
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon_price}
+                    <span style="font-size:0.85rem; color:#6b7280;">سعر السهم الآن</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${curr_price:,.2f}</p>
+                <p style="font-size:0.82rem; color:{'#16a34a' if change_pct >= 0 else '#dc2626'}; margin:4px 0 0; font-weight:500;">
+                    {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
+                </p>
+            </div>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon_cap}
+                    <span style="font-size:0.85rem; color:#6b7280;">حجم الشركة</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{cap_str}</p>
+                <p style="font-size:0.82rem; color:#6b7280; margin:4px 0 0; font-weight:500;">{cap_desc}</p>
+            </div>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon_high}
+                    <span style="font-size:0.85rem; color:#6b7280;">أعلى سعر في السنة</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${week_high:.2f if week_high else '—'}</p>
+                <p style="font-size:0.82rem; color:{high_color}; margin:4px 0 0; font-weight:500;">{high_desc}</p>
+            </div>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon_low}
+                    <span style="font-size:0.85rem; color:#6b7280;">أقل سعر في السنة</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${week_low:.2f if week_low else '—'}</p>
+                <p style="font-size:0.82rem; color:{low_color}; margin:4px 0 0; font-weight:500;">{low_desc}</p>
+            </div>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon_vol}
+                    <span style="font-size:0.85rem; color:#6b7280;">حجم التداول اليوم</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{vol_str}</p>
+                <p style="font-size:0.82rem; color:{vol_color}; margin:4px 0 0; font-weight:500;">{vol_desc}</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown('<br>', unsafe_allow_html=True)
 
