@@ -226,7 +226,7 @@ def load_models():
         models['3months'] = joblib.load('smartstocks_v3_models/3months_model.pkl')
         models['features'] = joblib.load('smartstocks_v3_models/features.pkl')
         # label encoder اختياري
-        enc_path = 'models/label_encoder.pkl'
+        enc_path = 'smartstocks_v3_models/label_encoder.pkl'
         if os.path.exists(enc_path):
             models['encoder'] = joblib.load(enc_path)
         return models, True
@@ -813,7 +813,14 @@ if st.session_state.get('hist') is not None:
         """, unsafe_allow_html=True)
 
         # ─── التوصيات ───
-        st.markdown('<p class="section-title">🤖 توصية الذكاء الاصطناعي</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <p class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" style="vertical-align:-3px; margin-left:6px;">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            توصية الذكاء الاصطناعي
+        </p>""", unsafe_allow_html=True)
 
         horizon_choice = st.radio(
             'اختر الفترة الزمنية:',
@@ -834,66 +841,220 @@ if st.session_state.get('hist') is not None:
                     st.markdown(rec_card_html(predictions[selected_key]), unsafe_allow_html=True)
 
         # ─── الرسم البياني ───
-        st.markdown('<p class="section-title">📊 الرسم البياني (آخر 90 يوم)</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <p class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" style="vertical-align:-3px; margin-left:6px;">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            حركة السعر — آخر 90 يوم
+        </p>""", unsafe_allow_html=True)
         fig = make_chart(hist)
         st.plotly_chart(fig, use_container_width=True)
 
         # ─── المؤشرات الفنية ───
-        st.markdown('<p class="section-title">📡 المؤشرات الفنية</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <p class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" style="vertical-align:-3px; margin-left:6px;">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            المؤشرات الفنية
+        </p>""", unsafe_allow_html=True)
 
-        close_s = hist['Close']
-        rsi_val = float(ta.momentum.RSIIndicator(close_s, window=14).rsi().iloc[-1])
-        macd_i  = ta.trend.MACD(close_s)
-        macd_v  = float(macd_i.macd().iloc[-1])
-        macd_sig= float(macd_i.macd_signal().iloc[-1])
-        sma20_v = float(close_s.rolling(20).mean().iloc[-1])
-        sma50_v = float(close_s.rolling(50).mean().iloc[-1])
+        close_s  = hist['Close']
+        rsi_val  = float(ta.momentum.RSIIndicator(close_s, window=14).rsi().iloc[-1])
+        macd_i   = ta.trend.MACD(close_s)
+        macd_v   = float(macd_i.macd().iloc[-1])
+        macd_sig = float(macd_i.macd_signal().iloc[-1])
+        sma20_v  = float(close_s.rolling(20).mean().iloc[-1])
+        sma50_v  = float(close_s.rolling(50).mean().iloc[-1])
+
+        # RSI
+        if rsi_val > 70:
+            rsi_label = 'تشبع شرائي — قد يكون السعر مرتفعاً جداً'
+            rsi_color = '#dc2626'
+            rsi_bg    = '#fff1f1'
+            rsi_border= '#fca5a5'
+        elif rsi_val < 30:
+            rsi_label = 'تشبع بيعي — قد يكون السعر منخفضاً جداً'
+            rsi_color = '#16a34a'
+            rsi_bg    = '#f0fdf4'
+            rsi_border= '#86efac'
+        else:
+            rsi_label = 'منطقة متوازنة — لا يوجد تشبع'
+            rsi_color = '#d97706'
+            rsi_bg    = '#fffbeb'
+            rsi_border= '#fcd34d'
+
+        # MACD
+        if macd_v > macd_sig:
+            macd_label  = 'إشارة إيجابية — الزخم صاعد'
+            macd_color  = '#16a34a'
+            macd_bg     = '#f0fdf4'
+            macd_border = '#86efac'
+        else:
+            macd_label  = 'إشارة سلبية — الزخم هابط'
+            macd_color  = '#dc2626'
+            macd_bg     = '#fff1f1'
+            macd_border = '#fca5a5'
+
+        # SMA20
+        if curr_price > sma20_v:
+            sma20_label  = 'السعر فوق المتوسط — اتجاه إيجابي'
+            sma20_color  = '#16a34a'
+            sma20_bg     = '#f0fdf4'
+            sma20_border = '#86efac'
+        else:
+            sma20_label  = 'السعر تحت المتوسط — اتجاه سلبي'
+            sma20_color  = '#dc2626'
+            sma20_bg     = '#fff1f1'
+            sma20_border = '#fca5a5'
+
+        # SMA50
+        if curr_price > sma50_v:
+            sma50_label  = 'السعر فوق المتوسط — اتجاه قوي'
+            sma50_color  = '#16a34a'
+            sma50_bg     = '#f0fdf4'
+            sma50_border = '#86efac'
+        else:
+            sma50_label  = 'السعر تحت المتوسط — اتجاه ضعيف'
+            sma50_color  = '#dc2626'
+            sma50_bg     = '#fff1f1'
+            sma50_border = '#fca5a5'
+
+        def ind_card(title, subtitle, value, label, color, bg, border):
+            return f"""
+            <div style="background:{bg}; border:1.5px solid {border};
+                        border-radius:16px; padding:1.2rem 1.5rem; height:100%;">
+                <p style="font-size:0.85rem; color:#6b7280; margin:0 0 2px;">{title}</p>
+                <p style="font-size:0.8rem; color:#9ca3af; margin:0 0 10px;">{subtitle}</p>
+                <p style="font-size:1.8rem; font-weight:700; color:#0a2463; margin:0;">{value}</p>
+                <p style="font-size:0.85rem; color:{color}; margin:6px 0 0; font-weight:500;">{label}</p>
+            </div>"""
 
         ic1, ic2, ic3, ic4 = st.columns(4)
-
         with ic1:
-            if rsi_val > 70:
-                rsi_desc, rsi_st = 'تشبع شرائي ⚠️', 'neg'
-            elif rsi_val < 30:
-                rsi_desc, rsi_st = 'تشبع بيعي 💡', 'pos'
-            else:
-                rsi_desc, rsi_st = 'منطقة متوازنة', 'neu'
-            st.markdown(indicator_html('مؤشر RSI', f'{rsi_val:.1f}', rsi_desc, rsi_st), unsafe_allow_html=True)
-
+            st.markdown(ind_card(
+                'مؤشر RSI', 'قياس قوة الاتجاه (0-100)',
+                f'{rsi_val:.1f}', rsi_label, rsi_color, rsi_bg, rsi_border
+            ), unsafe_allow_html=True)
         with ic2:
-            macd_desc = 'إشارة إيجابية 📈' if macd_v > macd_sig else 'إشارة سلبية 📉'
-            macd_st   = 'pos' if macd_v > macd_sig else 'neg'
-            st.markdown(indicator_html('مؤشر MACD', f'{macd_v:.2f}', macd_desc, macd_st), unsafe_allow_html=True)
-
+            st.markdown(ind_card(
+                'مؤشر MACD', 'اتجاه وزخم السهم',
+                f'{macd_v:.2f}', macd_label, macd_color, macd_bg, macd_border
+            ), unsafe_allow_html=True)
         with ic3:
-            sma20_desc = 'السعر فوق المتوسط ✅' if curr_price > sma20_v else 'السعر تحت المتوسط'
-            sma20_st   = 'pos' if curr_price > sma20_v else 'neg'
-            st.markdown(indicator_html('متوسط 20 يوم', f'${sma20_v:.2f}', sma20_desc, sma20_st), unsafe_allow_html=True)
-
+            st.markdown(ind_card(
+                'متوسط 20 يوم', 'الاتجاه قصير المدى',
+                f'${sma20_v:.2f}', sma20_label, sma20_color, sma20_bg, sma20_border
+            ), unsafe_allow_html=True)
         with ic4:
-            sma50_desc = 'السعر فوق المتوسط ✅' if curr_price > sma50_v else 'السعر تحت المتوسط'
-            sma50_st   = 'pos' if curr_price > sma50_v else 'neg'
-            st.markdown(indicator_html('متوسط 50 يوم', f'${sma50_v:.2f}', sma50_desc, sma50_st), unsafe_allow_html=True)
+            st.markdown(ind_card(
+                'متوسط 50 يوم', 'الاتجاه متوسط المدى',
+                f'${sma50_v:.2f}', sma50_label, sma50_color, sma50_bg, sma50_border
+            ), unsafe_allow_html=True)
 
-        # ─── معلومات الشركة ───
-        if info and info.get('longBusinessSummary'):
-            st.markdown('<p class="section-title">🏢 عن الشركة</p>', unsafe_allow_html=True)
-            ci1, ci2 = st.columns(2)
-            with ci1:
-                st.markdown(f"**الاسم:** {info.get('longName','—')}")
-                st.markdown(f"**القطاع:** {info.get('sector','—')}")
-                st.markdown(f"**الصناعة:** {info.get('industry','—')}")
-                st.markdown(f"**الموقع:** {info.get('country','—')}")
-            with ci2:
-                pe = info.get('trailingPE')
-                if pe:
-                    st.markdown(f"**نسبة السعر للأرباح (P/E):** {pe:.2f}")
-                div = info.get('dividendYield')
-                if div:
-                    st.markdown(f"**العائد على التوزيعات:** {div*100:.2f}%")
-                beta = info.get('beta')
-                if beta:
-                    st.markdown(f"**بيتا (مخاطر السوق):** {beta:.2f}")
+        st.markdown('<br>', unsafe_allow_html=True)
+
+        # ─── عن الشركة ───
+        if info:
+            st.markdown("""
+            <p class="section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" style="vertical-align:-3px; margin-left:6px;">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                عن الشركة
+            </p>""", unsafe_allow_html=True)
+
+            pe   = info.get('trailingPE')
+            div  = info.get('dividendYield')
+            beta = info.get('beta')
+            sector   = info.get('sector', '—')
+            industry = info.get('industry', '—')
+            country  = info.get('country', '—')
+
+            # تفسير بيتا
+            if beta:
+                if beta > 1.5:
+                    beta_desc = 'مخاطر عالية جداً'
+                    beta_color = '#dc2626'
+                elif beta > 1:
+                    beta_desc = 'مخاطر أعلى من السوق'
+                    beta_color = '#d97706'
+                else:
+                    beta_desc = 'مخاطر أقل من السوق'
+                    beta_color = '#16a34a'
+            else:
+                beta_desc = '—'
+                beta_color = '#6b7280'
+
+            st.markdown(f"""
+            <div style="background:white; border:1.5px solid #e2eaf5;
+                        border-radius:20px; padding:1.5rem 2rem; margin-bottom:1rem;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+
+                    <div style="border-left:3px solid #e2eaf5; padding-right:1rem;">
+                        <p style="font-size:0.85rem; color:#9ca3af; margin:0 0 12px; font-weight:600;">
+                            معلومات الشركة
+                        </p>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
+                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{sector}</p>
+                            </div>
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الصناعة</p>
+                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{industry}</p>
+                            </div>
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الدولة</p>
+                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{country}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="border-left:3px solid #e2eaf5; padding-right:1rem;">
+                        <p style="font-size:0.85rem; color:#9ca3af; margin:0 0 12px; font-weight:600;">
+                            مؤشرات مالية
+                        </p>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                    نسبة P/E
+                                    <span style="font-size:0.75rem;">— كم تدفع مقابل كل دولار ربح</span>
+                                </p>
+                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">
+                                    {f'{pe:.1f}x' if pe else '—'}
+                                </p>
+                            </div>
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                    العائد على التوزيعات
+                                    <span style="font-size:0.75rem;">— نسبة الأرباح الموزعة</span>
+                                </p>
+                                <p style="font-size:1rem; color:#16a34a; font-weight:600; margin:2px 0 0;">
+                                    {f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'}
+                                </p>
+                            </div>
+                            <div>
+                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                    بيتا
+                                    <span style="font-size:0.75rem;">— مستوى مخاطر السهم</span>
+                                </p>
+                                <p style="font-size:1rem; font-weight:600; margin:2px 0 0; color:{beta_color};">
+                                    {f'{beta:.2f}' if beta else '—'} — {beta_desc}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # Footer
