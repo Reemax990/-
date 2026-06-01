@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 # ─────────────────────────────────────────────
 st.set_page_config(
     page_title="SmartStocks | تحليل الأسهم",
-    page_icon="📈",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -553,25 +553,42 @@ def rec_card_html(data):
     probs   = data['probs']
 
     css_class  = {'BUY': 'rec-buy', 'SELL': 'rec-sell', 'HOLD': 'rec-hold'}.get(label, 'rec-hold')
-    ar_label   = {'BUY': '🟢 شراء', 'SELL': '🔴 بيع', 'HOLD': '🟡 انتظار'}.get(label, label)
     bar_class  = {'BUY': 'conf-bar-fill-buy', 'SELL': 'conf-bar-fill-sell', 'HOLD': 'conf-bar-fill-hold'}.get(label, 'conf-bar-fill-hold')
     conf_word  = conf_to_text(conf)
     tendency   = top_tendency(probs)
 
-    # لون كلمة الثقة
     conf_color = {'عالية جداً': '#16a34a', 'عالية': '#16a34a',
                   'متوسطة': '#d97706', 'منخفضة': '#dc2626'}.get(conf_word, '#6b7280')
 
+    # أيقونات SVG بدل إيموجي
+    if label == 'BUY':
+        icon_svg = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+        ar_label = 'شراء'
+        label_color = '#16a34a'
+    elif label == 'SELL':
+        icon_svg = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>'
+        ar_label = 'بيع'
+        label_color = '#dc2626'
+    else:
+        icon_svg = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+        ar_label = 'انتظار'
+        label_color = '#d97706'
+
+    cal_icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" style="vertical-align:-2px;margin-left:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+
     return f"""
     <div class="rec-card {css_class}">
-        <p class="rec-horizon">📅 {horizon}</p>
-        <p class="rec-label">{ar_label}</p>
-        <p style="font-size:0.95rem; color:#4b5563; margin:0.3rem 0;">{tendency}</p>
-        <div style="margin:1rem 0 0.3rem;">
-            <span style="font-size:0.9rem; color:#6b7280;">مستوى الثقة:</span>
-            <span style="font-size:1rem; font-weight:700; color:{conf_color}; margin-right:6px;">
-                {conf_word}
-            </span>
+        <p style="font-size:0.9rem; color:#6b7280; margin:0 0 10px;">
+            {cal_icon} {horizon}
+        </p>
+        <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin:0.3rem 0;">
+            {icon_svg}
+            <span style="font-size:2rem; font-weight:900; color:{label_color};">{ar_label}</span>
+        </div>
+        <p style="font-size:0.92rem; color:#4b5563; margin:0.8rem 0 0.3rem;">{tendency}</p>
+        <div style="margin:0.8rem 0 0.3rem;">
+            <span style="font-size:0.88rem; color:#6b7280;">مستوى الثقة:</span>
+            <span style="font-size:0.95rem; font-weight:700; color:{conf_color}; margin-right:6px;">{conf_word}</span>
         </div>
         <div class="conf-bar-wrap">
             <div class="conf-bar-bg">
@@ -602,7 +619,15 @@ def indicator_html(title, value, desc, status):
 # الهيدر
 st.markdown("""
 <div class="header-wrap">
-    <h1 class="header-title">SmartStocks</h1>
+    <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:8px;">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="48" height="48" rx="12" fill="#0a2463"/>
+            <polyline points="8,34 18,22 26,28 40,14" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="40" cy="14" r="3" fill="#4ade80"/>
+            <circle cx="8" cy="34" r="3" fill="#4ade80"/>
+        </svg>
+        <h1 class="header-title">SmartStocks</h1>
+    </div>
     <p class="header-sub">منصة تحليل الأسهم بالذكاء الاصطناعي</p>
 </div>
 """, unsafe_allow_html=True)
@@ -618,7 +643,12 @@ if not models_loaded:
     st.stop()
 
 # ─── بحث السهم ───
-st.markdown('<p class="section-title">ابحث عن سهم</p>', unsafe_allow_html=True)
+st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
+    margin:0 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5; display:flex; align-items:center; gap:8px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a2463" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    ابحث عن سهم</p>""", unsafe_allow_html=True)
 col_input, col_btn = st.columns([3, 1])
 with col_input:
     symbol_raw = st.text_input(
@@ -689,17 +719,6 @@ if st.session_state.get('hist') is not None:
         change_color = '#4ade80' if change_pct >= 0 else '#f87171'
         company_name = info.get('longName', info.get('shortName', symbol)) if info else symbol
 
-        # بطاقة السهم الرئيسية
-        st.markdown(f"""
-        <div class="stock-header">
-            <p class="stock-name">{company_name} &nbsp;·&nbsp; {symbol}</p>
-            <p class="stock-price">${curr_price:,.2f}</p>
-            <span style="color:{change_color}; font-size:1.2rem; font-weight:700;">
-                {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-
         # ─── معلومات السهم ───
         market_cap = info.get('marketCap', 0) if info else 0
         week_high  = info.get('fiftyTwoWeekHigh', 0) if info else 0
@@ -769,8 +788,33 @@ if st.session_state.get('hist') is not None:
             </div>"""
 
         st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
-            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5;">
+            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5; display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a2463" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
             معلومات السهم</p>""", unsafe_allow_html=True)
+
+        # البوكس الأزرق مدرج داخل السكشن مع شرح
+        change_sign2 = '+' if change_pct >= 0 else ''
+        change_color2 = '#4ade80' if change_pct >= 0 else '#f87171'
+        change_arrow2 = '▲' if change_pct >= 0 else '▼'
+        st.markdown(f"""
+        <div style="background:#0a2463; border-radius:16px; padding:1.5rem 2rem; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin:0;">{company_name} · {symbol}</p>
+                    <p style="color:white; font-size:2.2rem; font-weight:700; margin:4px 0;">${curr_price:,.2f}</p>
+                    <p style="color:{change_color2}; font-size:1rem; font-weight:600; margin:0;">
+                        {change_arrow2} {change_sign2}{change_val:.2f}$ ({change_sign2}{change_pct:.2f}%) اليوم
+                    </p>
+                </div>
+                <div style="background:rgba(255,255,255,0.08); border-radius:12px; padding:0.8rem 1.2rem; text-align:center;">
+                    <p style="color:rgba(255,255,255,0.5); font-size:0.78rem; margin:0;">السعر الحالي في السوق</p>
+                    <p style="color:rgba(255,255,255,0.5); font-size:0.75rem; margin:4px 0 0;">يتحدث كل 5 دقائق</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         r1c1, r1c2 = st.columns(2)
         r2c1, r2c2 = st.columns(2)
