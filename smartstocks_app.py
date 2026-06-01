@@ -602,7 +602,7 @@ def indicator_html(title, value, desc, status):
 # الهيدر
 st.markdown("""
 <div class="header-wrap">
-    <h1 class="header-title">📈 SmartStocks</h1>
+    <h1 class="header-title">SmartStocks</h1>
     <p class="header-sub">منصة تحليل الأسهم بالذكاء الاصطناعي</p>
 </div>
 """, unsafe_allow_html=True)
@@ -618,8 +618,7 @@ if not models_loaded:
     st.stop()
 
 # ─── بحث السهم ───
-st.markdown('<p class="section-title">🔍 ابحث عن سهم</p>', unsafe_allow_html=True)
-
+st.markdown('<p class="section-title">ابحث عن سهم</p>', unsafe_allow_html=True)
 col_input, col_btn = st.columns([3, 1])
 with col_input:
     symbol_raw = st.text_input(
@@ -627,13 +626,11 @@ with col_input:
         value='AAPL',
         placeholder='مثال: AAPL أو TSLA أو MSFT',
         label_visibility='collapsed',
-        help='أدخل رمز السهم باللغة الإنجليزية'
     )
 with col_btn:
-    analyze = st.button('🔍  تحليل', type='primary', use_container_width=True)
+    analyze = st.button('تحليل', type='primary', use_container_width=True)
 
-# أسهم سريعة
-st.markdown('<p style="font-size:1rem;color:#6b7280;margin:0.5rem 0 0.3rem;">⚡ أسهم شائعة:</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size:0.95rem;color:#6b7280;margin:0.5rem 0 0.3rem;">أسهم شائعة:</p>', unsafe_allow_html=True)
 quick_cols = st.columns(8)
 quick_stocks = ['AAPL','MSFT','NVDA','TSLA','GOOGL','AMZN','META','AMD']
 selected_quick = None
@@ -664,7 +661,7 @@ if analyze and symbol:
         if hist is None or hist.empty:
             st.markdown(f"""
             <div class="error-box">
-                ❌ لم يتم العثور على بيانات للسهم <strong>{symbol}</strong><br>
+                لم يتم العثور على بيانات للسهم <strong>{symbol}</strong><br>
                 تأكد من صحة الرمز وحاول مرة أخرى.
             </div>
             """, unsafe_allow_html=True)
@@ -687,18 +684,19 @@ if st.session_state.get('hist') is not None:
         prev_price = float(hist['Close'].iloc[-2]) if len(hist) > 1 else curr_price
         change_val = curr_price - prev_price
         change_pct = (change_val / prev_price) * 100
-
-        change_class = 'stock-change-pos' if change_pct >= 0 else 'stock-change-neg'
         change_sign  = '+' if change_pct >= 0 else ''
         change_arrow = '▲' if change_pct >= 0 else '▼'
-
+        change_color = '#4ade80' if change_pct >= 0 else '#f87171'
         company_name = info.get('longName', info.get('shortName', symbol)) if info else symbol
 
+        # بطاقة السهم الرئيسية
         st.markdown(f"""
         <div class="stock-header">
             <p class="stock-name">{company_name} &nbsp;·&nbsp; {symbol}</p>
             <p class="stock-price">${curr_price:,.2f}</p>
-            <span class="{change_class}">{change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم</span>
+            <span style="color:{change_color}; font-size:1.2rem; font-weight:700;">
+                {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
+            </span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -708,102 +706,99 @@ if st.session_state.get('hist') is not None:
         week_low   = info.get('fiftyTwoWeekLow', 0) if info else 0
         volume     = float(hist['Volume'].iloc[-1])
 
-        # حجم الشركة
         if market_cap > 1e12:
             cap_str  = f"${market_cap/1e9:.0f}B"
-            cap_desc = "شركة ضخمة جداً 🏢"
+            cap_desc = "شركة ضخمة جداً"
         elif market_cap > 1e9:
             cap_str  = f"${market_cap/1e9:.1f}B"
-            cap_desc = "شركة كبيرة 🏢"
+            cap_desc = "شركة كبيرة"
         elif market_cap > 1e6:
             cap_str  = f"${market_cap/1e6:.0f}M"
-            cap_desc = "شركة متوسطة 🏢"
+            cap_desc = "شركة متوسطة"
         else:
             cap_str  = "—"
             cap_desc = "—"
 
-        # أعلى/أقل 52 أسبوع
         if week_high > 0:
             pct_from_high = ((curr_price - week_high) / week_high) * 100
-            high_desc = f"السهم أقل من قمته بـ {abs(pct_from_high):.0f}% 📉" if pct_from_high < 0 else "السهم عند قمته ⚠️"
+            high_desc  = f"أقل من قمته بـ {abs(pct_from_high):.0f}%" if pct_from_high < 0 else "عند قمته"
+            high_color = '#dc2626' if pct_from_high < 0 else '#16a34a'
         else:
-            high_desc = "—"
+            high_desc = "—"; high_color = '#6b7280'
 
         if week_low > 0:
             pct_from_low = ((curr_price - week_low) / week_low) * 100
-            low_desc = f"ارتفع {pct_from_low:.0f}% من أدنى نقطة 📈"
+            low_desc  = f"ارتفع {pct_from_low:.0f}% من أدنى نقطة"
+            low_color = '#16a34a'
         else:
-            low_desc = "—"
+            low_desc = "—"; low_color = '#6b7280'
 
-        # حجم التداول
         vol_str = f"{volume/1e6:.1f}M سهم"
         avg_vol = info.get('averageVolume', 0) if info else 0
         if avg_vol > 0:
             vol_ratio = volume / avg_vol
             if vol_ratio > 1.5:
-                vol_desc = "تداول مرتفع — اهتمام كبير 🔥"
+                vol_desc = "تداول مرتفع — اهتمام كبير"
+                vol_color = '#16a34a'
             elif vol_ratio < 0.5:
-                vol_desc = "تداول منخفض — اهتمام قليل 😴"
+                vol_desc = "تداول منخفض — اهتمام قليل"
+                vol_color = '#d97706'
             else:
-                vol_desc = "تداول طبيعي 📊"
+                vol_desc = "تداول طبيعي"
+                vol_color = '#6b7280'
         else:
-            vol_desc = "📊"
+            vol_desc = "—"; vol_color = '#6b7280'
 
-        st.markdown('<p class="section-title">📋 معلومات السهم</p>', unsafe_allow_html=True)
+        # SVG icons
+        icon_price = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
+        icon_cap   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+        icon_high  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+        icon_low   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>'
+        icon_vol   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>'
+
+        def info_card(icon, label, value, desc, desc_color):
+            return f"""
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                        padding:1.2rem 1.5rem; height:100%;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    {icon}
+                    <span style="font-size:0.85rem; color:#6b7280;">{label}</span>
+                </div>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{value}</p>
+                <p style="font-size:0.82rem; color:{desc_color}; margin:4px 0 0; font-weight:500;">{desc}</p>
+            </div>"""
+
+        st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
+            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5;">
+            معلومات السهم</p>""", unsafe_allow_html=True)
 
         r1c1, r1c2 = st.columns(2)
         r2c1, r2c2 = st.columns(2)
         r3c1, r3c2 = st.columns(2)
 
         with r1c1:
-            color = "#16a34a" if change_pct >= 0 else "#dc2626"
-            st.markdown(f"""
-            <div class="info-card">
-                <p class="info-label">💰 سعر السهم الآن</p>
-                <p class="info-value">${curr_price:,.2f}</p>
-                <p style="font-size:0.85rem; color:{color}; margin:0;">
-                    {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
-                </p>
-            </div>""", unsafe_allow_html=True)
-
+            st.markdown(info_card(icon_price, 'سعر السهم الآن', f'${curr_price:,.2f}',
+                f'{change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم',
+                '#16a34a' if change_pct >= 0 else '#dc2626'), unsafe_allow_html=True)
         with r1c2:
-            st.markdown(f"""
-            <div class="info-card">
-                <p class="info-label">🏢 حجم الشركة</p>
-                <p class="info-value">{cap_str}</p>
-                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{cap_desc}</p>
-            </div>""", unsafe_allow_html=True)
-
+            st.markdown(info_card(icon_cap, 'حجم الشركة', cap_str, cap_desc, '#6b7280'), unsafe_allow_html=True)
         with r2c1:
-            st.markdown(f"""
-            <div class="info-card">
-                <p class="info-label">📈 أعلى سعر في السنة</p>
-                <p class="info-value">${week_high:.2f}</p>
-                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{high_desc}</p>
-            </div>""", unsafe_allow_html=True)
-
+            st.markdown(info_card(icon_high, 'أعلى سعر في السنة', f'${week_high:.2f}' if week_high else '—', high_desc, high_color), unsafe_allow_html=True)
         with r2c2:
-            st.markdown(f"""
-            <div class="info-card">
-                <p class="info-label">📉 أقل سعر في السنة</p>
-                <p class="info-value">${week_low:.2f}</p>
-                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{low_desc}</p>
-            </div>""", unsafe_allow_html=True)
-
+            st.markdown(info_card(icon_low, 'أقل سعر في السنة', f'${week_low:.2f}' if week_low else '—', low_desc, low_color), unsafe_allow_html=True)
         with r3c1:
-            st.markdown(f"""
-            <div class="info-card">
-                <p class="info-label">📊 حجم التداول اليوم</p>
-                <p class="info-value">{vol_str}</p>
-                <p style="font-size:0.85rem; color:#6b7280; margin:0;">{vol_desc}</p>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(info_card(icon_vol, 'حجم التداول اليوم', vol_str, vol_desc, vol_color), unsafe_allow_html=True)
 
         st.markdown('<br>', unsafe_allow_html=True)
 
         # ─── التنبيه القانوني ───
         st.markdown("""
         <div class="legal-box">
-            <span class="legal-icon">⚠️</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#92400e"
+                stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
             <p class="legal-text">
                 <strong>تنبيه مهم:</strong> التوصيات التالية صادرة من نموذج ذكاء اصطناعي للأغراض المعلوماتية فقط،
                 وليست نصيحة مالية أو استثمارية. قرارات الاستثمار مسؤوليتك الشخصية.
@@ -960,24 +955,13 @@ if st.session_state.get('hist') is not None:
 
         # ─── عن الشركة ───
         if info:
-            st.markdown("""
-            <p class="section-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" style="vertical-align:-3px; margin-left:6px;">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                </svg>
-                عن الشركة
-            </p>""", unsafe_allow_html=True)
-
-            pe   = info.get('trailingPE')
-            div  = info.get('dividendYield')
-            beta = info.get('beta')
+            pe       = info.get('trailingPE')
+            div      = info.get('dividendYield')
+            beta     = info.get('beta')
             sector   = info.get('sector', '—')
             industry = info.get('industry', '—')
             country  = info.get('country', '—')
 
-            # تفسير بيتا
             if beta:
                 if beta > 1.5:
                     beta_desc = 'مخاطر عالية جداً'
@@ -992,69 +976,73 @@ if st.session_state.get('hist') is not None:
                 beta_desc = '—'
                 beta_color = '#6b7280'
 
-            st.markdown(f"""
-            <div style="background:white; border:1.5px solid #e2eaf5;
-                        border-radius:20px; padding:1.5rem 2rem; margin-bottom:1rem;">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
+                margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5;">
+                عن الشركة</p>""", unsafe_allow_html=True)
 
-                    <div style="border-left:3px solid #e2eaf5; padding-right:1rem;">
-                        <p style="font-size:0.85rem; color:#9ca3af; margin:0 0 12px; font-weight:600;">
-                            معلومات الشركة
-                        </p>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
-                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{sector}</p>
-                            </div>
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الصناعة</p>
-                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{industry}</p>
-                            </div>
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الدولة</p>
-                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">{country}</p>
-                            </div>
+            cc1, cc2 = st.columns(2)
+
+            with cc1:
+                st.markdown(f"""
+                <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                            padding:1.3rem 1.5rem;">
+                    <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
+                               margin:0 0 14px; text-transform:uppercase; letter-spacing:0.5px;">
+                        معلومات الشركة
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
+                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{sector}</p>
+                        </div>
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الصناعة</p>
+                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{industry}</p>
+                        </div>
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الدولة</p>
+                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{country}</p>
                         </div>
                     </div>
-
-                    <div style="border-left:3px solid #e2eaf5; padding-right:1rem;">
-                        <p style="font-size:0.85rem; color:#9ca3af; margin:0 0 12px; font-weight:600;">
-                            مؤشرات مالية
-                        </p>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                    نسبة P/E
-                                    <span style="font-size:0.75rem;">— كم تدفع مقابل كل دولار ربح</span>
-                                </p>
-                                <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:2px 0 0;">
-                                    {f'{pe:.1f}x' if pe else '—'}
-                                </p>
-                            </div>
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                    العائد على التوزيعات
-                                    <span style="font-size:0.75rem;">— نسبة الأرباح الموزعة</span>
-                                </p>
-                                <p style="font-size:1rem; color:#16a34a; font-weight:600; margin:2px 0 0;">
-                                    {f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'}
-                                </p>
-                            </div>
-                            <div>
-                                <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                    بيتا
-                                    <span style="font-size:0.75rem;">— مستوى مخاطر السهم</span>
-                                </p>
-                                <p style="font-size:1rem; font-weight:600; margin:2px 0 0; color:{beta_color};">
-                                    {f'{beta:.2f}' if beta else '—'} — {beta_desc}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+
+            with cc2:
+                pe_str  = f'{pe:.1f}x' if pe else '—'
+                div_str = f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'
+                beta_str = f'{beta:.2f} — {beta_desc}' if beta else '—'
+                st.markdown(f"""
+                <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                            padding:1.3rem 1.5rem;">
+                    <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
+                               margin:0 0 14px; text-transform:uppercase; letter-spacing:0.5px;">
+                        مؤشرات مالية
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                نسبة P/E
+                                <span style="font-size:0.75rem; color:#b0b7c3;"> — كم تدفع مقابل كل دولار ربح</span>
+                            </p>
+                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{pe_str}</p>
+                        </div>
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                التوزيعات
+                                <span style="font-size:0.75rem; color:#b0b7c3;"> — نسبة الأرباح الموزعة</span>
+                            </p>
+                            <p style="font-size:1rem; color:#16a34a; font-weight:600; margin:3px 0 0;">{div_str}</p>
+                        </div>
+                        <div>
+                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+                                بيتا
+                                <span style="font-size:0.75rem; color:#b0b7c3;"> — مستوى مخاطر السهم</span>
+                            </p>
+                            <p style="font-size:1rem; font-weight:600; margin:3px 0 0; color:{beta_color};">{beta_str}</p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # Footer
