@@ -842,7 +842,7 @@ if st.session_state.get('hist') is not None:
                     {icon_high}
                     <span style="font-size:0.85rem; color:#6b7280;">أعلى سعر في السنة</span>
                 </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${week_high:.2f if week_high else '—'}</p>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${f'{week_high:.2f}' if week_high else '—'}</p>
                 <p style="font-size:0.82rem; color:{high_color}; margin:4px 0 0; font-weight:500;">{high_desc}</p>
             </div>
             <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
@@ -850,7 +850,7 @@ if st.session_state.get('hist') is not None:
                     {icon_low}
                     <span style="font-size:0.85rem; color:#6b7280;">أقل سعر في السنة</span>
                 </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${week_low:.2f if week_low else '—'}</p>
+                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${f'{week_low:.2f}' if week_low else '—'}</p>
                 <p style="font-size:0.82rem; color:{low_color}; margin:4px 0 0; font-weight:500;">{low_desc}</p>
             </div>
             <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
