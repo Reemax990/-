@@ -242,7 +242,7 @@ models, models_loaded = load_models()
 @st.cache_data(ttl=300)
 def get_market_data():
     market = {}
-    for ticker in ['SPY', 'QQQ', '^VIX', '^TNX']:
+    for ticker in ['SPY', 'QQQ', '^VIX']:
         try:
             d = yf.download(ticker, period='3y', auto_adjust=True, progress=False)
             if isinstance(d.columns, pd.MultiIndex):
@@ -406,16 +406,15 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
 @st.cache_data(ttl=300)
 def fetch_display_data(symbol):
     try:
-        # نحاول بـ download أولاً لأنه أكثر استقراراً
-        hist = yf.download(symbol, period='6mo', auto_adjust=True, progress=False)
+        # نحمّل سنة كاملة عشان نحسب أعلى/أقل 52 أسبوع
+        hist = yf.download(symbol, period='1y', auto_adjust=True, progress=False)
         if isinstance(hist.columns, pd.MultiIndex):
             hist.columns = hist.columns.get_level_values(0)
         hist = hist.dropna()
 
         if hist.empty:
-            # نجرب الطريقة الثانية
             stock = yf.Ticker(symbol)
-            hist  = stock.history(period='6mo')
+            hist  = stock.history(period='1y')
             if isinstance(hist.columns, pd.MultiIndex):
                 hist.columns = hist.columns.get_level_values(0)
             hist = hist.dropna()
@@ -423,14 +422,28 @@ def fetch_display_data(symbol):
         if hist.empty:
             return None, None
 
-        info = {}
+        # نحسب أعلى/أقل 52 أسبوع من البيانات التاريخية مباشرة
+        week52_high = float(hist['High'].max())
+        week52_low  = float(hist['Low'].min())
+
+        info = {
+            'fiftyTwoWeekHigh': week52_high,
+            'fiftyTwoWeekLow':  week52_low,
+        }
+
+        # نحاول نجيب باقي المعلومات من Yahoo
         try:
-            stock = yf.Ticker(symbol)
-            info  = stock.info
+            stock     = yf.Ticker(symbol)
+            yahoo_info = stock.info
+            if yahoo_info:
+                info.update(yahoo_info)
         except:
             pass
 
-        return hist, info
+        # نرجع آخر 6 أشهر للرسم البياني
+        hist6mo = hist.tail(126)
+        return hist6mo, info
+
     except:
         return None, None
 
