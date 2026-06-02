@@ -999,101 +999,90 @@ if st.session_state.get('hist') is not None:
         st.markdown('<br>', unsafe_allow_html=True)
 
         # ─── عن الشركة ───
-        sector   = info.get('sector', '—')   if info else '—'
-        industry = info.get('industry', '—') if info else '—'
-        country  = info.get('country', '—')  if info else '—'
-        pe       = info.get('trailingPE')     if info else None
-        div      = info.get('dividendYield')  if info else None
-        beta     = info.get('beta')           if info else None
+        sector   = '—'
+        industry = '—'
+        country  = '—'
+        pe       = None
+        div      = None
+        beta     = None
 
-        # نعرض السكشن دائماً حتى لو البيانات ناقصة
-        has_company_info = any([
-            sector != '—', industry != '—', country != '—',
-            pe, div, beta
-        ])
+        if info:
+            sector   = info.get('sector',   '—') or '—'
+            industry = info.get('industry', '—') or '—'
+            country  = info.get('country',  '—') or '—'
+            pe       = info.get('trailingPE')
+            div      = info.get('dividendYield')
+            beta     = info.get('beta')
 
-        if has_company_info:
-            if beta:
-                if beta > 1.5:
-                    beta_desc = 'مخاطر عالية جداً'
-                    beta_color = '#dc2626'
-                elif beta > 1:
-                    beta_desc = 'مخاطر أعلى من السوق'
-                    beta_color = '#d97706'
-                else:
-                    beta_desc = 'مخاطر أقل من السوق'
-                    beta_color = '#16a34a'
+        if beta:
+            if beta > 1.5:
+                beta_desc  = 'مخاطر عالية جداً'
+                beta_color = '#dc2626'
+            elif beta > 1:
+                beta_desc  = 'مخاطر أعلى من السوق'
+                beta_color = '#d97706'
             else:
-                beta_desc  = 'غير متاح'
-                beta_color = '#6b7280'
+                beta_desc  = 'مخاطر أقل من السوق'
+                beta_color = '#16a34a'
+        else:
+            beta_desc  = 'غير متاح'
+            beta_color = '#6b7280'
 
-            st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
-                margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5;">
-                عن الشركة</p>""", unsafe_allow_html=True)
+        pe_str   = f'{pe:.1f}x'        if pe  else 'غير متاح'
+        div_str  = f'{div*100:.2f}%'   if div else 'لا يوجد توزيعات'
+        beta_str = f'{beta:.2f} — {beta_desc}' if beta else 'غير متاح'
 
-            cc1, cc2 = st.columns(2)
+        st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
+            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5;">
+            عن الشركة</p>""", unsafe_allow_html=True)
 
-            with cc1:
-                st.markdown(f"""
-                <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
-                            padding:1.3rem 1.5rem;">
-                    <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
-                               margin:0 0 14px; text-transform:uppercase; letter-spacing:0.5px;">
-                        معلومات الشركة
-                    </p>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
-                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{sector}</p>
-                        </div>
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الصناعة</p>
-                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{industry}</p>
-                        </div>
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الدولة</p>
-                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{country}</p>
-                        </div>
+        cc1, cc2 = st.columns(2)
+
+        with cc1:
+            st.markdown(f"""
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                        padding:1.3rem 1.5rem;">
+                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
+                           margin:0 0 14px;">معلومات الشركة</p>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
+                        <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{sector}</p>
+                    </div>
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الصناعة</p>
+                        <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{industry}</p>
+                    </div>
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">الدولة</p>
+                        <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{country}</p>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
-            with cc2:
-                pe_str   = f'{pe:.1f}x' if pe else 'غير متاح'
-                div_str  = f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'
-                beta_str = f'{beta:.2f} — {beta_desc}' if beta else 'غير متاح'
-                st.markdown(f"""
-                <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
-                            padding:1.3rem 1.5rem;">
-                    <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
-                               margin:0 0 14px; text-transform:uppercase; letter-spacing:0.5px;">
-                        مؤشرات مالية
-                    </p>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                نسبة P/E
-                                <span style="font-size:0.75rem; color:#b0b7c3;"> — كم تدفع مقابل كل دولار ربح</span>
-                            </p>
-                            <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{pe_str}</p>
-                        </div>
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                التوزيعات
-                                <span style="font-size:0.75rem; color:#b0b7c3;"> — نسبة الأرباح الموزعة</span>
-                            </p>
-                            <p style="font-size:1rem; color:#16a34a; font-weight:600; margin:3px 0 0;">{div_str}</p>
-                        </div>
-                        <div>
-                            <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-                                بيتا
-                                <span style="font-size:0.75rem; color:#b0b7c3;"> — مستوى مخاطر السهم</span>
-                            </p>
-                            <p style="font-size:1rem; font-weight:600; margin:3px 0 0; color:{beta_color};">{beta_str}</p>
-                        </div>
+        with cc2:
+            st.markdown(f"""
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                        padding:1.3rem 1.5rem;">
+                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
+                           margin:0 0 14px;">مؤشرات مالية</p>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">نسبة P/E</p>
+                        <p style="font-size:1rem; color:#0a2463; font-weight:600; margin:3px 0 0;">{pe_str}</p>
+                    </div>
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">التوزيعات</p>
+                        <p style="font-size:1rem; color:#16a34a; font-weight:600; margin:3px 0 0;">{div_str}</p>
+                    </div>
+                    <div>
+                        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">بيتا — مستوى المخاطر</p>
+                        <p style="font-size:1rem; font-weight:600; margin:3px 0 0; color:{beta_color};">{beta_str}</p>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # Footer
