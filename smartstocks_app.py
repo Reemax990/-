@@ -242,9 +242,9 @@ models, models_loaded = load_models()
 @st.cache_data(ttl=300)
 def get_market_data():
     market = {}
-    for ticker in ['SPY', 'QQQ', '^VIX']:
+    for ticker in ['SPY', 'QQQ', '^VIX', '^TNX']:
         try:
-            d = yf.download(ticker, period='2y', auto_adjust=True, progress=False)
+            d = yf.download(ticker, period='3y', auto_adjust=True, progress=False)
             if isinstance(d.columns, pd.MultiIndex):
                 d.columns = d.columns.get_level_values(0)
             d.reset_index(inplace=True)
@@ -255,6 +255,7 @@ def get_market_data():
 
 
 def build_features_for_prediction(data, market):
+    """V5 Features — نفس الـ features اللي تدرب عليها المودل"""
     df = data.copy().sort_values('Date').reset_index(drop=True)
 
     close = df['Close']
@@ -262,87 +263,70 @@ def build_features_for_prediction(data, market):
     low   = df['Low']
     vol   = df['Volume']
 
+    # A) العوائد
     df['return_1d']  = close.pct_change(1)
     df['return_5d']  = close.pct_change(5)
-    df['return_10d'] = close.pct_change(10)
     df['return_21d'] = close.pct_change(21)
+    df['return_63d'] = close.pct_change(63)
 
-    for lag in [1, 2, 3, 5, 10]:
-        df[f'close_lag_{lag}']  = close.shift(lag)
-        df[f'return_lag_{lag}'] = df['return_1d'].shift(lag)
-        df[f'volume_lag_{lag}'] = vol.shift(lag)
+    # B) المتوسطات
+    sma20  = close.rolling(20).mean()
+    sma50  = close.rolling(50).mean()
+    sma200 = close.rolling(200).mean()
 
-    df['SMA20'] = close.rolling(20).mean()
-    df['SMA50'] = close.rolling(50).mean()
-    df['price_to_SMA20'] = close / df['SMA20'] - 1
-    df['price_to_SMA50'] = close / df['SMA50'] - 1
-    df['SMA20_slope'] = df['SMA20'].pct_change(5)
-    df['SMA50_slope'] = df['SMA50'].pct_change(10)
+    df['price_to_sma20']  = close / sma20 - 1
+    df['price_to_sma50']  = close / sma50 - 1
+    df['price_to_sma200'] = close / sma200 - 1
+    df['sma20_slope']     = sma20.pct_change(5)
+    df['golden_cross']    = (sma50 > sma200).astype(int)
 
+    # C) المؤشرات الفنية
     df['RSI']       = ta.momentum.RSIIndicator(close, window=14).rsi()
-    df['RSI_slope'] = df['RSI'].diff(3)
+    df['RSI_slope'] = df['RSI'].diff(5)
 
-    macd_i = ta.trend.MACD(close)
-    df['MACD']        = macd_i.macd()
-    df['MACD_signal'] = macd_i.macd_signal()
-    df['MACD_hist']   = macd_i.macd_diff()
+    macd = ta.trend.MACD(close)
+    df['MACD_hist'] = macd.macd_diff()
 
-    bb = ta.volatility.BollingerBands(close, window=20)
-    df['bb_pct']   = bb.bollinger_pband()
-    df['bb_width'] = bb.bollinger_wband()
+    df['ATR_pct'] = ta.volatility.AverageTrueRange(
+        high, low, close, window=14).average_true_range() / close
 
-    df['ATR']     = ta.volatility.AverageTrueRange(high, low, close, window=14).average_true_range()
-    df['ATR_pct'] = df['ATR'] / close
+    df['bb_pct'] = ta.volatility.BollingerBands(
+        close, window=20).bollinger_pband()
 
-    stoch = ta.momentum.StochasticOscillator(high, low, close, window=14)
-    df['stoch_k'] = stoch.stoch()
-    df['stoch_d'] = stoch.stoch_signal()
+    df['volume_ratio'] = vol / vol.rolling(20).mean()
 
-    df['williams_r'] = ta.momentum.WilliamsRIndicator(high, low, close, lbp=14).williams_r()
+    # D) موقع السعر في السنة
+    df['price_pct_52w'] = close.rolling(252).rank(pct=True)
 
-    df['OBV']       = ta.volume.OnBalanceVolumeIndicator(close, vol).on_balance_volume()
-    df['OBV_slope'] = df['OBV'].pct_change(5)
-
-    df['momentum_10'] = ta.momentum.ROCIndicator(close, window=10).roc()
-    df['momentum_21'] = ta.momentum.ROCIndicator(close, window=21).roc()
-
-    df['volatility_10'] = df['return_1d'].rolling(10).std()
-    df['volatility_21'] = df['return_1d'].rolling(21).std()
-    df['volume_change'] = vol.pct_change(5)
-    df['volume_ratio']  = vol / vol.rolling(20).mean()
-
-    # بيانات السوق
+    # E) بيانات السوق
     for ticker, mdf in market.items():
-        safe = ticker.replace('^','')
-        tmp = mdf.rename(columns={'Close': f'{safe}_Close'})
-        df = df.merge(tmp[['Date', f'{safe}_Close']], on='Date', how='left')
-        df[f'{safe}_return_1d'] = df[f'{safe}_Close'].pct_change(1)
-        df[f'{safe}_return_5d'] = df[f'{safe}_Close'].pct_change(5)
-        df[f'{safe}_momentum']  = df[f'{safe}_Close'].pct_change(21)
-        df.drop(columns=[f'{safe}_Close'], inplace=True)
+        safe = ticker.replace('^', '')
+        tmp  = mdf.rename(columns={'Close': f'{safe}_c'})
+        df   = df.merge(tmp[['Date', f'{safe}_c']], on='Date', how='left')
+        df[f'{safe}_ret5']  = df[f'{safe}_c'].pct_change(5)
+        df[f'{safe}_ret21'] = df[f'{safe}_c'].pct_change(21)
+        df.drop(columns=[f'{safe}_c'], inplace=True)
 
     if '^VIX' in market:
-        vix = market['^VIX'].rename(columns={'Close':'VIX_Close'})
-        df = df.merge(vix[['Date','VIX_Close']], on='Date', how='left')
-        df['VIX_level']   = df['VIX_Close']
-        df['VIX_above20'] = (df['VIX_Close'] > 20).astype(int)
-        df['VIX_above30'] = (df['VIX_Close'] > 30).astype(int)
-        df['VIX_change']  = df['VIX_Close'].pct_change(5)
-        df.drop(columns=['VIX_Close'], inplace=True)
+        vix = market['^VIX'].rename(columns={'Close': 'VIX_c'})
+        df  = df.merge(vix[['Date', 'VIX_c']], on='Date', how='left')
+        df['VIX_level']   = df['VIX_c']
+        df['VIX_above20'] = (df['VIX_c'] > 20).astype(int)
+        df.drop(columns=['VIX_c'], inplace=True)
 
     if 'SPY' in market:
         spy = market['SPY'].copy()
-        spy['SPY_SMA50']  = spy['Close'].rolling(50).mean()
-        spy['SPY_SMA200'] = spy['Close'].rolling(200).mean()
-        spy['market_regime'] = (spy['Close'] > spy['SPY_SMA50']).astype(int)
-        spy['bull_market']   = (spy['SPY_SMA50'] > spy['SPY_SMA200']).astype(int)
-        df = df.merge(spy[['Date','market_regime','bull_market']], on='Date', how='left')
+        spy['sma50']  = spy['Close'].rolling(50).mean()
+        spy['sma200'] = spy['Close'].rolling(200).mean()
+        spy['market_regime'] = (spy['Close'] > spy['sma50']).astype(int)
+        spy['bull_market']   = (spy['sma50'] > spy['sma200']).astype(int)
+        df = df.merge(spy[['Date', 'market_regime', 'bull_market']],
+                      on='Date', how='left')
 
-    if 'SPY_return_5d' in df.columns:
-        df['rel_strength_5d']  = df['return_5d']  - df.get('SPY_return_5d', 0)
-        df['rel_strength_21d'] = df['return_21d'] - df.get('SPY_momentum', 0)
+    if 'SPY_ret5' in df.columns:
+        df['rel_strength'] = df['return_5d'] - df['SPY_ret5']
 
-    drop_cols = ['Open','High','Low','Close','Adj Close','SMA20','SMA50','Volume']
+    drop_cols = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
     df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
     df.dropna(inplace=True)
 
@@ -353,7 +337,7 @@ def build_features_for_prediction(data, market):
 # التنبؤ
 # ─────────────────────────────────────────────
 def predict(ticker_symbol, models, market, conf_threshold=0.50):
-    data = yf.download(ticker_symbol, period='2y', auto_adjust=True, progress=False)
+    data = yf.download(ticker_symbol, period='3y', auto_adjust=True, progress=False)
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = data.columns.get_level_values(0)
     data.reset_index(inplace=True)
@@ -816,53 +800,46 @@ if st.session_state.get('hist') is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        # كاردز المعلومات — responsive للجوال والكمبيوتر
-        st.markdown(f"""
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:1rem;">
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
+        # كاردز المعلومات — st.columns للجوال والكمبيوتر
+        def info_card_html(icon, label, value, desc, desc_color):
+            return f"""
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
+                        padding:1.2rem 1.5rem; margin-bottom:8px;">
                 <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon_price}
-                    <span style="font-size:0.85rem; color:#6b7280;">سعر السهم الآن</span>
+                    {icon}
+                    <span style="font-size:0.85rem; color:#6b7280;">{label}</span>
                 </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${curr_price:,.2f}</p>
-                <p style="font-size:0.82rem; color:{'#16a34a' if change_pct >= 0 else '#dc2626'}; margin:4px 0 0; font-weight:500;">
-                    {change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم
-                </p>
-            </div>
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon_cap}
-                    <span style="font-size:0.85rem; color:#6b7280;">حجم الشركة</span>
-                </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{cap_str}</p>
-                <p style="font-size:0.82rem; color:#6b7280; margin:4px 0 0; font-weight:500;">{cap_desc}</p>
-            </div>
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon_high}
-                    <span style="font-size:0.85rem; color:#6b7280;">أعلى سعر في السنة</span>
-                </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${f'{week_high:.2f}' if week_high else '—'}</p>
-                <p style="font-size:0.82rem; color:{high_color}; margin:4px 0 0; font-weight:500;">{high_desc}</p>
-            </div>
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon_low}
-                    <span style="font-size:0.85rem; color:#6b7280;">أقل سعر في السنة</span>
-                </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">${f'{week_low:.2f}' if week_low else '—'}</p>
-                <p style="font-size:0.82rem; color:{low_color}; margin:4px 0 0; font-weight:500;">{low_desc}</p>
-            </div>
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.2rem 1.5rem;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon_vol}
-                    <span style="font-size:0.85rem; color:#6b7280;">حجم التداول اليوم</span>
-                </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{vol_str}</p>
-                <p style="font-size:0.82rem; color:{vol_color}; margin:4px 0 0; font-weight:500;">{vol_desc}</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+                <p style="font-size:1.5rem; font-weight:700; color:#0a2463; margin:0;">{value}</p>
+                <p style="font-size:0.82rem; color:{desc_color}; margin:4px 0 0; font-weight:500;">{desc}</p>
+            </div>"""
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(info_card_html(
+                icon_price, 'سعر السهم الآن',
+                f'${curr_price:,.2f}',
+                f'{change_arrow} {change_sign}{change_val:.2f}$ ({change_sign}{change_pct:.2f}%) اليوم',
+                '#16a34a' if change_pct >= 0 else '#dc2626'
+            ), unsafe_allow_html=True)
+            st.markdown(info_card_html(
+                icon_high, 'أعلى سعر في السنة',
+                f'${week_high:.2f}' if week_high else '$—',
+                high_desc, high_color
+            ), unsafe_allow_html=True)
+            st.markdown(info_card_html(
+                icon_vol, 'حجم التداول اليوم',
+                vol_str, vol_desc, vol_color
+            ), unsafe_allow_html=True)
+        with c2:
+            st.markdown(info_card_html(
+                icon_cap, 'حجم الشركة',
+                cap_str, cap_desc, '#6b7280'
+            ), unsafe_allow_html=True)
+            st.markdown(info_card_html(
+                icon_low, 'أقل سعر في السنة',
+                f'${week_low:.2f}' if week_low else '$—',
+                low_desc, low_color
+            ), unsafe_allow_html=True)
 
         st.markdown('<br>', unsafe_allow_html=True)
 
