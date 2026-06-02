@@ -759,48 +759,6 @@ if st.session_state.get('hist') is not None:
         icon_low   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>'
         icon_vol   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>'
 
-        def info_card(icon, label, value, desc, desc_color):
-            return f"""
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
-                        padding:1.2rem 1.5rem; height:100%;">
-                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                    {icon}
-                    <span style="font-size:0.85rem; color:#6b7280;">{label}</span>
-                </div>
-                <p style="font-size:1.6rem; font-weight:700; color:#0a2463; margin:0;">{value}</p>
-                <p style="font-size:0.82rem; color:{desc_color}; margin:4px 0 0; font-weight:500;">{desc}</p>
-            </div>"""
-
-        st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
-            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5; display:flex; align-items:center; gap:8px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a2463" stroke-width="2">
-                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-            معلومات السهم</p>""", unsafe_allow_html=True)
-
-        # البوكس الأزرق مدرج داخل السكشن مع شرح
-        change_sign2 = '+' if change_pct >= 0 else ''
-        change_color2 = '#4ade80' if change_pct >= 0 else '#f87171'
-        change_arrow2 = '▲' if change_pct >= 0 else '▼'
-        st.markdown(f"""
-        <div style="background:#0a2463; border-radius:16px; padding:1.5rem 2rem; margin-bottom:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin:0;">{company_name} · {symbol}</p>
-                    <p style="color:white; font-size:2.2rem; font-weight:700; margin:4px 0;">${curr_price:,.2f}</p>
-                    <p style="color:{change_color2}; font-size:1rem; font-weight:600; margin:0;">
-                        {change_arrow2} {change_sign2}{change_val:.2f}$ ({change_sign2}{change_pct:.2f}%) اليوم
-                    </p>
-                </div>
-                <div style="background:rgba(255,255,255,0.08); border-radius:12px; padding:0.8rem 1.2rem; text-align:center;">
-                    <p style="color:rgba(255,255,255,0.5); font-size:0.78rem; margin:0;">السعر الحالي في السوق</p>
-                    <p style="color:rgba(255,255,255,0.5); font-size:0.75rem; margin:4px 0 0;">يتحدث كل 5 دقائق</p>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # كاردز المعلومات — st.columns للجوال والكمبيوتر
         def info_card_html(icon, label, value, desc, desc_color):
             return f"""
             <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
@@ -813,6 +771,28 @@ if st.session_state.get('hist') is not None:
                 <p style="font-size:0.82rem; color:{desc_color}; margin:4px 0 0; font-weight:500;">{desc}</p>
             </div>"""
 
+        st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
+            margin:1.5rem 0 0.8rem; padding-bottom:0.5rem; border-bottom:2px solid #e2eaf5; display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a2463" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            معلومات السهم</p>""", unsafe_allow_html=True)
+
+        # البوكس الأزرق
+        change_sign2  = '+' if change_pct >= 0 else ''
+        change_color2 = '#4ade80' if change_pct >= 0 else '#f87171'
+        change_arrow2 = '▲' if change_pct >= 0 else '▼'
+        st.markdown(f"""
+        <div style="background:#0a2463; border-radius:16px; padding:1.5rem 2rem; margin-bottom:16px;">
+            <p style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin:0;">{company_name} · {symbol}</p>
+            <p style="color:white; font-size:2.2rem; font-weight:700; margin:4px 0;">${curr_price:,.2f}</p>
+            <p style="color:{change_color2}; font-size:1rem; font-weight:600; margin:0;">
+                {change_arrow2} {change_sign2}{change_val:.2f}$ ({change_sign2}{change_pct:.2f}%) اليوم
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # كاردز المعلومات — عمودين للجوال والكمبيوتر
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(info_card_html(
