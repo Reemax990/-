@@ -221,12 +221,12 @@ st.markdown("""
 def load_models():
     models = {}
     try:
-        models['week']    = joblib.load('smartstocks_v3_models/week_model.pkl')
-        models['month']   = joblib.load('smartstocks_v3_models/month_model.pkl')
-        models['3months'] = joblib.load('smartstocks_v3_models/3months_model.pkl')
-        models['features'] = joblib.load('smartstocks_v3_models/features.pkl')
+        models['week']    = joblib.load('smartstocks_v5_models/week_model.pkl')
+        models['month']   = joblib.load('smartstocks_v5_models/month_model.pkl')
+        models['3months'] = joblib.load('smartstocks_v5_models/3months_model.pkl')
+        models['features'] = joblib.load('smartstocks_v5_models/features.pkl')
         # label encoder اختياري
-        enc_path = 'smartstocks_v3_models/label_encoder.pkl'
+        enc_path = 'smartstocks_v5_models/label_encoder.pkl'
         if os.path.exists(enc_path):
             models['encoder'] = joblib.load(enc_path)
         return models, True
