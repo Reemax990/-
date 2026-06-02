@@ -406,42 +406,42 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
 @st.cache_data(ttl=300)
 def fetch_display_data(symbol):
     try:
-        # نحمّل سنة كاملة عشان نحسب أعلى/أقل 52 أسبوع
-        hist = yf.download(symbol, period='1y', auto_adjust=True, progress=False)
-        if isinstance(hist.columns, pd.MultiIndex):
-            hist.columns = hist.columns.get_level_values(0)
-        hist = hist.dropna()
+        # نحمّل سنة للرسم البياني وحساب أعلى/أقل سعر
+        hist1y = yf.download(symbol, period='1y', auto_adjust=True, progress=False)
+        if isinstance(hist1y.columns, pd.MultiIndex):
+            hist1y.columns = hist1y.columns.get_level_values(0)
+        hist1y = hist1y.dropna()
 
-        if hist.empty:
-            stock = yf.Ticker(symbol)
-            hist  = stock.history(period='1y')
-            if isinstance(hist.columns, pd.MultiIndex):
-                hist.columns = hist.columns.get_level_values(0)
-            hist = hist.dropna()
-
-        if hist.empty:
+        if hist1y.empty:
             return None, None
 
-        # نحسب أعلى/أقل 52 أسبوع من البيانات التاريخية مباشرة
-        week52_high = float(hist['High'].max())
-        week52_low  = float(hist['Low'].min())
+        # نحسب أعلى/أقل من البيانات التاريخية
+        week52_high = float(hist1y['High'].max())
+        week52_low  = float(hist1y['Low'].min())
 
+        # نجيب info بطريقة سريعة
         info = {
             'fiftyTwoWeekHigh': week52_high,
             'fiftyTwoWeekLow':  week52_low,
         }
-
-        # نحاول نجيب باقي المعلومات من Yahoo
         try:
-            stock     = yf.Ticker(symbol)
-            yahoo_info = stock.info
-            if yahoo_info:
-                info.update(yahoo_info)
+            ticker_obj = yf.Ticker(symbol)
+            fast_info  = ticker_obj.fast_info
+            info['marketCap']  = getattr(fast_info, 'market_cap', 0) or 0
+            info['sector']     = getattr(ticker_obj, 'info', {}).get('sector', '—')
+            info['industry']   = getattr(ticker_obj, 'info', {}).get('industry', '—')
+            info['country']    = getattr(ticker_obj, 'info', {}).get('country', '—')
+            info['longName']   = getattr(fast_info, 'quote_type', symbol)
+            try:
+                full_info = ticker_obj.info
+                info.update(full_info)
+            except:
+                pass
         except:
             pass
 
         # نرجع آخر 6 أشهر للرسم البياني
-        hist6mo = hist.tail(126)
+        hist6mo = hist1y.tail(126)
         return hist6mo, info
 
     except:
@@ -732,8 +732,8 @@ if st.session_state.get('hist') is not None:
             cap_str  = f"${market_cap/1e6:.0f}M"
             cap_desc = "شركة متوسطة"
         else:
-            cap_str  = "—"
-            cap_desc = "—"
+            cap_str  = "غير متاح"
+            cap_desc = "البيانات غير متوفرة حالياً"
 
         if week_high > 0:
             pct_from_high = ((curr_price - week_high) / week_high) * 100
@@ -999,14 +999,20 @@ if st.session_state.get('hist') is not None:
         st.markdown('<br>', unsafe_allow_html=True)
 
         # ─── عن الشركة ───
-        if info:
-            pe       = info.get('trailingPE')
-            div      = info.get('dividendYield')
-            beta     = info.get('beta')
-            sector   = info.get('sector', '—')
-            industry = info.get('industry', '—')
-            country  = info.get('country', '—')
+        sector   = info.get('sector', '—')   if info else '—'
+        industry = info.get('industry', '—') if info else '—'
+        country  = info.get('country', '—')  if info else '—'
+        pe       = info.get('trailingPE')     if info else None
+        div      = info.get('dividendYield')  if info else None
+        beta     = info.get('beta')           if info else None
 
+        # نعرض السكشن دائماً حتى لو البيانات ناقصة
+        has_company_info = any([
+            sector != '—', industry != '—', country != '—',
+            pe, div, beta
+        ])
+
+        if has_company_info:
             if beta:
                 if beta > 1.5:
                     beta_desc = 'مخاطر عالية جداً'
@@ -1018,7 +1024,7 @@ if st.session_state.get('hist') is not None:
                     beta_desc = 'مخاطر أقل من السوق'
                     beta_color = '#16a34a'
             else:
-                beta_desc = '—'
+                beta_desc  = 'غير متاح'
                 beta_color = '#6b7280'
 
             st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
@@ -1053,9 +1059,9 @@ if st.session_state.get('hist') is not None:
                 """, unsafe_allow_html=True)
 
             with cc2:
-                pe_str  = f'{pe:.1f}x' if pe else '—'
-                div_str = f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'
-                beta_str = f'{beta:.2f} — {beta_desc}' if beta else '—'
+                pe_str   = f'{pe:.1f}x' if pe else 'غير متاح'
+                div_str  = f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'
+                beta_str = f'{beta:.2f} — {beta_desc}' if beta else 'غير متاح'
                 st.markdown(f"""
                 <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
                             padding:1.3rem 1.5rem;">
