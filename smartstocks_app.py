@@ -31,6 +31,18 @@ st.markdown("""
 
 * { font-family: 'Tajawal', sans-serif !important; }
 
+/* إخفاء زر GitHub والمنيو */
+[data-testid="stToolbar"]     { display: none !important; }
+[data-testid="stDecoration"]  { display: none !important; }
+.stDeployButton               { display: none !important; }
+header                        { visibility: hidden !important; height: 0 !important; }
+#MainMenu                     { visibility: hidden !important; }
+footer                        { visibility: hidden !important; }
+.viewerBadge_container__1QSob { display: none !important; }
+.styles_viewerBadge__1yB5_    { display: none !important; }
+.viewerBadge_link__1S137      { display: none !important; }
+.viewerBadge_text__1JaDK      { display: none !important; }
+
 .block-container { padding: 2rem 3rem !important; max-width: 1200px; margin: auto; }
 
 /* Header */
@@ -406,7 +418,7 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
 @st.cache_data(ttl=300)
 def fetch_display_data(symbol):
     try:
-        # نحمّل سنة للرسم البياني وحساب أعلى/أقل سعر
+        # نحمّل سنة للبيانات التاريخية
         hist1y = yf.download(symbol, period='1y', auto_adjust=True, progress=False)
         if isinstance(hist1y.columns, pd.MultiIndex):
             hist1y.columns = hist1y.columns.get_level_values(0)
@@ -415,32 +427,36 @@ def fetch_display_data(symbol):
         if hist1y.empty:
             return None, None
 
-        # نحسب أعلى/أقل من البيانات التاريخية
+        # نحسب أعلى/أقل من البيانات — دائماً يشتغل
         week52_high = float(hist1y['High'].max())
         week52_low  = float(hist1y['Low'].min())
 
-        # نجيب info بطريقة سريعة
         info = {
             'fiftyTwoWeekHigh': week52_high,
             'fiftyTwoWeekLow':  week52_low,
         }
+
+        # fast_info أولاً — سريع وموثوق
         try:
             ticker_obj = yf.Ticker(symbol)
-            fast_info  = ticker_obj.fast_info
-            info['marketCap']  = getattr(fast_info, 'market_cap', 0) or 0
-            info['sector']     = getattr(ticker_obj, 'info', {}).get('sector', '—')
-            info['industry']   = getattr(ticker_obj, 'info', {}).get('industry', '—')
-            info['country']    = getattr(ticker_obj, 'info', {}).get('country', '—')
-            info['longName']   = getattr(fast_info, 'quote_type', symbol)
-            try:
-                full_info = ticker_obj.info
-                info.update(full_info)
-            except:
-                pass
+            fi = ticker_obj.fast_info
+            info['marketCap'] = getattr(fi, 'market_cap', 0) or 0
         except:
             pass
 
-        # نرجع آخر 6 أشهر للرسم البياني
+        # نحاول نجيب التفاصيل — قد يفشل على Cloud
+        try:
+            ticker_obj = yf.Ticker(symbol)
+            full = ticker_obj.info or {}
+            for key in ['longName', 'shortName', 'sector', 'industry',
+                        'country', 'trailingPE', 'dividendYield', 'beta',
+                        'marketCap', 'averageVolume']:
+                if key in full and full[key] is not None:
+                    info[key] = full[key]
+        except:
+            pass
+
+        # آخر 6 أشهر للرسم البياني
         hist6mo = hist1y.tail(126)
         return hist6mo, info
 
