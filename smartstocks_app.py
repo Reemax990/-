@@ -31,17 +31,30 @@ st.markdown("""
 
 * { font-family: 'Tajawal', sans-serif !important; }
 
-/* إخفاء زر GitHub والمنيو */
+/* إخفاء كل عناصر Streamlit */
 [data-testid="stToolbar"]     { display: none !important; }
 [data-testid="stDecoration"]  { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+[data-testid="stHeader"]      { display: none !important; }
 .stDeployButton               { display: none !important; }
-header                        { visibility: hidden !important; height: 0 !important; }
-#MainMenu                     { visibility: hidden !important; }
-footer                        { visibility: hidden !important; }
+header                        { visibility: hidden !important; height: 0 !important; display: none !important; }
+#MainMenu                     { visibility: hidden !important; display: none !important; }
+footer                        { visibility: hidden !important; display: none !important; }
 .viewerBadge_container__1QSob { display: none !important; }
 .styles_viewerBadge__1yB5_    { display: none !important; }
 .viewerBadge_link__1S137      { display: none !important; }
 .viewerBadge_text__1JaDK      { display: none !important; }
+
+/* إخفاء أي عنصر يحتوي على viewerBadge */
+[class*="viewerBadge"]        { display: none !important; }
+[class*="ViewerBadge"]        { display: none !important; }
+[class*="stStatusWidget"]     { display: none !important; }
+
+/* إخفاء البادج اللي يطلع تحت */
+iframe[title="streamlit_app"] { display: none !important; }
+div[data-testid="stConnectionStatus"] { display: none !important; }
+a[href*="streamlit.io"]       { display: none !important; }
+a[href*="share.streamlit"]    { display: none !important; }
 
 .block-container { padding: 2rem 3rem !important; max-width: 1200px; margin: auto; }
 
