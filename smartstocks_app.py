@@ -246,12 +246,11 @@ a[href*="share.streamlit"]    { display: none !important; }
 def load_models():
     models = {}
     try:
-        models['week']    = joblib.load('smartstocks_v5_models/week_model.pkl')
-        models['month']   = joblib.load('smartstocks_v5_models/month_model.pkl')
-        models['3months'] = joblib.load('smartstocks_v5_models/3months_model.pkl')
-        models['features'] = joblib.load('smartstocks_v5_models/features.pkl')
-        # label encoder اختياري
-        enc_path = 'smartstocks_v5_models/label_encoder.pkl'
+        models['week']    = joblib.load('smartstocks_v6_models/week_model.pkl')
+        models['month']   = joblib.load('smartstocks_v6_models/month_model.pkl')
+        models['3months'] = joblib.load('smartstocks_v6_models/3months_model.pkl')
+        models['features'] = joblib.load('smartstocks_v6_models/features.pkl')
+        enc_path = 'smartstocks_v6_models/label_encoder.pkl'
         if os.path.exists(enc_path):
             models['encoder'] = joblib.load(enc_path)
         return models, True
@@ -262,7 +261,7 @@ models, models_loaded = load_models()
 
 
 # ─────────────────────────────────────────────
-# بناء الـ Features (نفس V3)
+# بناء الـ Features
 # ─────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def get_market_data():
@@ -280,7 +279,6 @@ def get_market_data():
 
 
 def build_features_for_prediction(data, market):
-    """V5 Features — نفس الـ features اللي تدرب عليها المودل"""
     df = data.copy().sort_values('Date').reset_index(drop=True)
 
     close = df['Close']
@@ -288,13 +286,11 @@ def build_features_for_prediction(data, market):
     low   = df['Low']
     vol   = df['Volume']
 
-    # A) العوائد
     df['return_1d']  = close.pct_change(1)
     df['return_5d']  = close.pct_change(5)
     df['return_21d'] = close.pct_change(21)
     df['return_63d'] = close.pct_change(63)
 
-    # B) المتوسطات
     sma20  = close.rolling(20).mean()
     sma50  = close.rolling(50).mean()
     sma200 = close.rolling(200).mean()
@@ -305,7 +301,6 @@ def build_features_for_prediction(data, market):
     df['sma20_slope']     = sma20.pct_change(5)
     df['golden_cross']    = (sma50 > sma200).astype(int)
 
-    # C) المؤشرات الفنية
     df['RSI']       = ta.momentum.RSIIndicator(close, window=14).rsi()
     df['RSI_slope'] = df['RSI'].diff(5)
 
@@ -319,11 +314,8 @@ def build_features_for_prediction(data, market):
         close, window=20).bollinger_pband()
 
     df['volume_ratio'] = vol / vol.rolling(20).mean()
-
-    # D) موقع السعر في السنة
     df['price_pct_52w'] = close.rolling(252).rank(pct=True)
 
-    # E) بيانات السوق
     for ticker, mdf in market.items():
         safe = ticker.replace('^', '')
         tmp  = mdf.rename(columns={'Close': f'{safe}_c'})
@@ -379,7 +371,6 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
     available = [f for f in feature_cols if f in df_feat.columns]
     latest = df_feat[available].iloc[[-1]]
 
-    # إذا فيه أعمدة ناقصة نملأها بصفر
     for col in feature_cols:
         if col not in latest.columns:
             latest[col] = 0
@@ -409,6 +400,10 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
         if conf < conf_threshold:
             label = 'HOLD'
 
+        # SELL يحتاج ثقة أعلى — حماية للمستخدم
+        if label == 'SELL' and conf < 0.70:
+            label = 'HOLD'
+
         classes = model.classes_
         prob_dict = {}
         for i, c in enumerate(classes):
@@ -431,7 +426,6 @@ def predict(ticker_symbol, models, market, conf_threshold=0.50):
 @st.cache_data(ttl=300)
 def fetch_display_data(symbol):
     try:
-        # نحمّل سنة للبيانات التاريخية
         hist1y = yf.download(symbol, period='1y', auto_adjust=True, progress=False)
         if isinstance(hist1y.columns, pd.MultiIndex):
             hist1y.columns = hist1y.columns.get_level_values(0)
@@ -440,7 +434,6 @@ def fetch_display_data(symbol):
         if hist1y.empty:
             return None, None
 
-        # نحسب أعلى/أقل من البيانات — دائماً يشتغل
         week52_high = float(hist1y['High'].max())
         week52_low  = float(hist1y['Low'].min())
 
@@ -449,7 +442,6 @@ def fetch_display_data(symbol):
             'fiftyTwoWeekLow':  week52_low,
         }
 
-        # fast_info أولاً — سريع وموثوق
         try:
             ticker_obj = yf.Ticker(symbol)
             fi = ticker_obj.fast_info
@@ -457,7 +449,6 @@ def fetch_display_data(symbol):
         except:
             pass
 
-        # نحاول نجيب التفاصيل — قد يفشل على Cloud
         try:
             ticker_obj = yf.Ticker(symbol)
             full = ticker_obj.info or {}
@@ -469,7 +460,6 @@ def fetch_display_data(symbol):
         except:
             pass
 
-        # آخر 6 أشهر للرسم البياني
         hist6mo = hist1y.tail(126)
         return hist6mo, info
 
@@ -556,7 +546,6 @@ def make_chart(hist):
 # دوال مساعدة للعرض
 # ─────────────────────────────────────────────
 def conf_to_text(conf):
-    """تحويل نسبة الثقة لكلمة واضحة"""
     if conf >= 75:
         return 'عالية جداً'
     elif conf >= 60:
@@ -566,8 +555,21 @@ def conf_to_text(conf):
     else:
         return 'منخفضة'
 
+def conf_to_advice(conf):
+    if conf >= 75:
+        icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" style="vertical-align:-2px;margin-left:4px;"><polyline points="20 6 9 17 4 12"/></svg>'
+        return (icon, '#16a34a', 'إشارة قوية وواضحة — النموذج واثق من هذا الاتجاه')
+    elif conf >= 60:
+        icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" style="vertical-align:-2px;margin-left:4px;"><polyline points="20 6 9 17 4 12"/></svg>'
+        return (icon, '#16a34a', 'إشارة جيدة — النموذج يرى اتجاهاً واضحاً')
+    elif conf >= 50:
+        icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" style="vertical-align:-2px;margin-left:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+        return (icon, '#d97706', 'إشارة معقولة لكن ليست حاسمة — راجع قبل تقرر')
+    else:
+        icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" style="vertical-align:-2px;margin-left:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        return (icon, '#dc2626', 'السوق ضبابي — لا يوجد اتجاه واضح، الأفضل الانتظار')
+
 def top_tendency(probs):
-    """إيجاد أعلى احتمال وتحويله لجملة واضحة"""
     max_label = max(probs, key=probs.get)
     ar = {'BUY': 'الشراء', 'SELL': 'البيع', 'HOLD': 'الانتظار'}
     return f"النموذج يميل نحو {ar.get(max_label, '')}"
@@ -582,11 +584,11 @@ def rec_card_html(data):
     bar_class  = {'BUY': 'conf-bar-fill-buy', 'SELL': 'conf-bar-fill-sell', 'HOLD': 'conf-bar-fill-hold'}.get(label, 'conf-bar-fill-hold')
     conf_word  = conf_to_text(conf)
     tendency   = top_tendency(probs)
+    advice_icon, advice_color, advice_text = conf_to_advice(conf)
 
     conf_color = {'عالية جداً': '#16a34a', 'عالية': '#16a34a',
                   'متوسطة': '#d97706', 'منخفضة': '#dc2626'}.get(conf_word, '#6b7280')
 
-    # أيقونات SVG بدل إيموجي
     if label == 'BUY':
         icon_svg = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
         ar_label = 'شراء'
@@ -616,6 +618,9 @@ def rec_card_html(data):
             <span style="font-size:0.88rem; color:#6b7280;">مستوى الثقة:</span>
             <span style="font-size:0.95rem; font-weight:700; color:{conf_color}; margin-right:6px;">{conf_word}</span>
         </div>
+        <p style="font-size:0.85rem; color:{advice_color}; margin:0.4rem 0 0.8rem; font-weight:500;">
+            {advice_icon} {advice_text}
+        </p>
         <div class="conf-bar-wrap">
             <div class="conf-bar-bg">
                 <div class="{bar_class}" style="width:{conf}%;"></div>
@@ -642,7 +647,6 @@ def indicator_html(title, value, desc, status):
 # الواجهة الرئيسية
 # ─────────────────────────────────────────────
 
-# الهيدر
 st.markdown("""
 <div class="header-wrap">
     <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:8px;">
@@ -658,7 +662,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# تحذير إذا النماذج غير محملة
 if not models_loaded:
     st.markdown("""
     <div class="error-box">
@@ -675,31 +678,44 @@ st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
     ابحث عن سهم</p>""", unsafe_allow_html=True)
+
+# تهيئة الـ default symbol
+if 'default_symbol' not in st.session_state:
+    st.session_state.default_symbol = 'AAPL'
+if 'auto_analyze' not in st.session_state:
+    st.session_state.auto_analyze = False
+
+# Search bar أولاً
 col_input, col_btn = st.columns([3, 1])
 with col_input:
     symbol_raw = st.text_input(
         label='رمز السهم',
-        value='AAPL',
+        value=st.session_state.default_symbol,
         placeholder='مثال: AAPL أو TSLA أو MSFT',
         label_visibility='collapsed',
     )
 with col_btn:
     analyze = st.button('تحليل', type='primary', use_container_width=True)
 
+# أسهم شائعة تحت البحث
 st.markdown('<p style="font-size:0.95rem;color:#6b7280;margin:0.5rem 0 0.3rem;">أسهم شائعة:</p>', unsafe_allow_html=True)
 quick_cols = st.columns(8)
 quick_stocks = ['AAPL','MSFT','NVDA','TSLA','GOOGL','AMZN','META','AMD']
-selected_quick = None
 for i, s in enumerate(quick_stocks):
     with quick_cols[i]:
         if st.button(s, key=f'q_{s}', use_container_width=True):
-            selected_quick = s
+            st.session_state.default_symbol = s
+            st.session_state.auto_analyze = True
+            st.rerun()
 
-symbol = (selected_quick or symbol_raw).upper().strip()
-if selected_quick:
+symbol = symbol_raw.upper().strip()
+
+# تحليل تلقائي لما يضغط على سهم شائع
+if st.session_state.auto_analyze:
+    st.session_state.auto_analyze = False
     analyze = True
+    symbol = st.session_state.default_symbol
 
-# ─── حفظ النتائج في session_state ───
 if 'predictions' not in st.session_state:
     st.session_state.predictions = None
 if 'hist' not in st.session_state:
@@ -709,7 +725,6 @@ if 'info_data' not in st.session_state:
 if 'last_symbol' not in st.session_state:
     st.session_state.last_symbol = None
 
-# ─── التحليل ───
 if analyze and symbol:
     market_data = get_market_data()
     with st.spinner(f'جاري تحليل سهم {symbol}...'):
@@ -722,20 +737,17 @@ if analyze and symbol:
             </div>
             """, unsafe_allow_html=True)
             st.stop()
-        # حفظ في session_state
         st.session_state.hist        = hist
         st.session_state.info_data   = info
         st.session_state.predictions = predict(symbol, models, market_data)
         st.session_state.last_symbol = symbol
 
-# عرض النتائج إذا موجودة
 if st.session_state.get('hist') is not None:
     hist   = st.session_state.hist
     info   = st.session_state.info_data
     symbol = st.session_state.last_symbol
     if True:
 
-        # معلومات السهم
         curr_price = float(hist['Close'].iloc[-1])
         prev_price = float(hist['Close'].iloc[-2]) if len(hist) > 1 else curr_price
         change_val = curr_price - prev_price
@@ -745,7 +757,6 @@ if st.session_state.get('hist') is not None:
         change_color = '#4ade80' if change_pct >= 0 else '#f87171'
         company_name = info.get('longName', info.get('shortName', symbol)) if info else symbol
 
-        # ─── معلومات السهم ───
         market_cap = info.get('marketCap', 0) if info else 0
         week_high  = info.get('fiftyTwoWeekHigh', 0) if info else 0
         week_low   = info.get('fiftyTwoWeekLow', 0) if info else 0
@@ -794,7 +805,6 @@ if st.session_state.get('hist') is not None:
         else:
             vol_desc = "—"; vol_color = '#6b7280'
 
-        # SVG icons
         icon_price = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
         icon_cap   = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
         icon_high  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
@@ -820,7 +830,6 @@ if st.session_state.get('hist') is not None:
             </svg>
             معلومات السهم</p>""", unsafe_allow_html=True)
 
-        # البوكس الأزرق
         change_sign2  = '+' if change_pct >= 0 else ''
         change_color2 = '#4ade80' if change_pct >= 0 else '#f87171'
         change_arrow2 = '▲' if change_pct >= 0 else '▼'
@@ -834,7 +843,6 @@ if st.session_state.get('hist') is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        # كاردز المعلومات — عمودين للجوال والكمبيوتر
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(info_card_html(
@@ -901,8 +909,33 @@ if st.session_state.get('hist') is not None:
 
         predictions = st.session_state.predictions
 
+        # ─── رسائل التوصية المحسّنة ───
         if predictions is None:
-            st.markdown('<div class="error-box">❌ تعذر توليد التوصيات لهذا السهم.</div>', unsafe_allow_html=True)
+            if curr_price < 2.0:
+                st.markdown(f"""
+                <div style="background:#fffbeb; border:2px solid #fbbf24; border-radius:16px;
+                            padding:1.5rem 2rem; text-align:center;">
+                    <p style="font-size:1.3rem; font-weight:700; color:#92400e; margin:0 0 8px;">
+                        ⚠️ هذا السهم من فئة الأسهم الصغيرة جداً
+                    </p>
+                    <p style="font-size:1rem; color:#92400e; margin:0; line-height:1.7;">
+                        سعر السهم <strong>${curr_price:.2f}</strong> — النموذج الحالي مدرّب على الأسهم الكبيرة فقط.<br>
+                        سيتم دعم هذا النوع من الأسهم في تحديث قادم قريباً.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background:#fff1f1; border:2px solid #fca5a5; border-radius:16px;
+                            padding:1.5rem 2rem; text-align:center;">
+                    <p style="font-size:1.3rem; font-weight:700; color:#dc2626; margin:0 0 8px;">
+                        تعذر تحليل هذا السهم
+                    </p>
+                    <p style="font-size:1rem; color:#dc2626; margin:0;">
+                        تأكد من رمز السهم أو حاول مرة أخرى لاحقاً.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             if selected_key in predictions:
                 col1, col2, col3 = st.columns([1, 2, 1])
@@ -940,58 +973,36 @@ if st.session_state.get('hist') is not None:
         sma20_v  = float(close_s.rolling(20).mean().iloc[-1])
         sma50_v  = float(close_s.rolling(50).mean().iloc[-1])
 
-        # RSI
         if rsi_val > 70:
             rsi_label = 'تشبع شرائي — قد يكون السعر مرتفعاً جداً'
-            rsi_color = '#dc2626'
-            rsi_bg    = '#fff1f1'
-            rsi_border= '#fca5a5'
+            rsi_color = '#dc2626'; rsi_bg = '#fff1f1'; rsi_border = '#fca5a5'
         elif rsi_val < 30:
             rsi_label = 'تشبع بيعي — قد يكون السعر منخفضاً جداً'
-            rsi_color = '#16a34a'
-            rsi_bg    = '#f0fdf4'
-            rsi_border= '#86efac'
+            rsi_color = '#16a34a'; rsi_bg = '#f0fdf4'; rsi_border = '#86efac'
         else:
             rsi_label = 'منطقة متوازنة — لا يوجد تشبع'
-            rsi_color = '#d97706'
-            rsi_bg    = '#fffbeb'
-            rsi_border= '#fcd34d'
+            rsi_color = '#d97706'; rsi_bg = '#fffbeb'; rsi_border = '#fcd34d'
 
-        # MACD
         if macd_v > macd_sig:
-            macd_label  = 'إشارة إيجابية — الزخم صاعد'
-            macd_color  = '#16a34a'
-            macd_bg     = '#f0fdf4'
-            macd_border = '#86efac'
+            macd_label = 'إشارة إيجابية — الزخم صاعد'
+            macd_color = '#16a34a'; macd_bg = '#f0fdf4'; macd_border = '#86efac'
         else:
-            macd_label  = 'إشارة سلبية — الزخم هابط'
-            macd_color  = '#dc2626'
-            macd_bg     = '#fff1f1'
-            macd_border = '#fca5a5'
+            macd_label = 'إشارة سلبية — الزخم هابط'
+            macd_color = '#dc2626'; macd_bg = '#fff1f1'; macd_border = '#fca5a5'
 
-        # SMA20
         if curr_price > sma20_v:
-            sma20_label  = 'السعر فوق المتوسط — اتجاه إيجابي'
-            sma20_color  = '#16a34a'
-            sma20_bg     = '#f0fdf4'
-            sma20_border = '#86efac'
+            sma20_label = 'السعر فوق المتوسط — اتجاه إيجابي'
+            sma20_color = '#16a34a'; sma20_bg = '#f0fdf4'; sma20_border = '#86efac'
         else:
-            sma20_label  = 'السعر تحت المتوسط — اتجاه سلبي'
-            sma20_color  = '#dc2626'
-            sma20_bg     = '#fff1f1'
-            sma20_border = '#fca5a5'
+            sma20_label = 'السعر تحت المتوسط — اتجاه سلبي'
+            sma20_color = '#dc2626'; sma20_bg = '#fff1f1'; sma20_border = '#fca5a5'
 
-        # SMA50
         if curr_price > sma50_v:
-            sma50_label  = 'السعر فوق المتوسط — اتجاه قوي'
-            sma50_color  = '#16a34a'
-            sma50_bg     = '#f0fdf4'
-            sma50_border = '#86efac'
+            sma50_label = 'السعر فوق المتوسط — اتجاه قوي'
+            sma50_color = '#16a34a'; sma50_bg = '#f0fdf4'; sma50_border = '#86efac'
         else:
-            sma50_label  = 'السعر تحت المتوسط — اتجاه ضعيف'
-            sma50_color  = '#dc2626'
-            sma50_bg     = '#fff1f1'
-            sma50_border = '#fca5a5'
+            sma50_label = 'السعر تحت المتوسط — اتجاه ضعيف'
+            sma50_color = '#dc2626'; sma50_bg = '#fff1f1'; sma50_border = '#fca5a5'
 
         def ind_card(title, subtitle, value, label, color, bg, border):
             return f"""
@@ -1005,35 +1016,23 @@ if st.session_state.get('hist') is not None:
 
         ic1, ic2, ic3, ic4 = st.columns(4)
         with ic1:
-            st.markdown(ind_card(
-                'مؤشر RSI', 'قياس قوة الاتجاه (0-100)',
-                f'{rsi_val:.1f}', rsi_label, rsi_color, rsi_bg, rsi_border
-            ), unsafe_allow_html=True)
+            st.markdown(ind_card('مؤشر RSI', 'قياس قوة الاتجاه (0-100)',
+                f'{rsi_val:.1f}', rsi_label, rsi_color, rsi_bg, rsi_border), unsafe_allow_html=True)
         with ic2:
-            st.markdown(ind_card(
-                'مؤشر MACD', 'اتجاه وزخم السهم',
-                f'{macd_v:.2f}', macd_label, macd_color, macd_bg, macd_border
-            ), unsafe_allow_html=True)
+            st.markdown(ind_card('مؤشر MACD', 'اتجاه وزخم السهم',
+                f'{macd_v:.2f}', macd_label, macd_color, macd_bg, macd_border), unsafe_allow_html=True)
         with ic3:
-            st.markdown(ind_card(
-                'متوسط 20 يوم', 'الاتجاه قصير المدى',
-                f'${sma20_v:.2f}', sma20_label, sma20_color, sma20_bg, sma20_border
-            ), unsafe_allow_html=True)
+            st.markdown(ind_card('متوسط 20 يوم', 'الاتجاه قصير المدى',
+                f'${sma20_v:.2f}', sma20_label, sma20_color, sma20_bg, sma20_border), unsafe_allow_html=True)
         with ic4:
-            st.markdown(ind_card(
-                'متوسط 50 يوم', 'الاتجاه متوسط المدى',
-                f'${sma50_v:.2f}', sma50_label, sma50_color, sma50_bg, sma50_border
-            ), unsafe_allow_html=True)
+            st.markdown(ind_card('متوسط 50 يوم', 'الاتجاه متوسط المدى',
+                f'${sma50_v:.2f}', sma50_label, sma50_color, sma50_bg, sma50_border), unsafe_allow_html=True)
 
         st.markdown('<br>', unsafe_allow_html=True)
 
         # ─── عن الشركة ───
-        sector   = '—'
-        industry = '—'
-        country  = '—'
-        pe       = None
-        div      = None
-        beta     = None
+        sector   = '—'; industry = '—'; country = '—'
+        pe = None; div = None; beta = None
 
         if info:
             sector   = info.get('sector',   '—') or '—'
@@ -1045,20 +1044,16 @@ if st.session_state.get('hist') is not None:
 
         if beta:
             if beta > 1.5:
-                beta_desc  = 'مخاطر عالية جداً'
-                beta_color = '#dc2626'
+                beta_desc = 'مخاطر عالية جداً'; beta_color = '#dc2626'
             elif beta > 1:
-                beta_desc  = 'مخاطر أعلى من السوق'
-                beta_color = '#d97706'
+                beta_desc = 'مخاطر أعلى من السوق'; beta_color = '#d97706'
             else:
-                beta_desc  = 'مخاطر أقل من السوق'
-                beta_color = '#16a34a'
+                beta_desc = 'مخاطر أقل من السوق'; beta_color = '#16a34a'
         else:
-            beta_desc  = 'غير متاح'
-            beta_color = '#6b7280'
+            beta_desc = 'غير متاح'; beta_color = '#6b7280'
 
-        pe_str   = f'{pe:.1f}x'        if pe  else 'غير متاح'
-        div_str  = f'{div*100:.2f}%'   if div else 'لا يوجد توزيعات'
+        pe_str   = f'{pe:.1f}x'      if pe  else 'غير متاح'
+        div_str  = f'{div*100:.2f}%' if div else 'لا يوجد توزيعات'
         beta_str = f'{beta:.2f} — {beta_desc}' if beta else 'غير متاح'
 
         st.markdown("""<p style="font-size:1.2rem; font-weight:700; color:#0a2463;
@@ -1066,13 +1061,10 @@ if st.session_state.get('hist') is not None:
             عن الشركة</p>""", unsafe_allow_html=True)
 
         cc1, cc2 = st.columns(2)
-
         with cc1:
             st.markdown(f"""
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
-                        padding:1.3rem 1.5rem;">
-                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
-                           margin:0 0 14px;">معلومات الشركة</p>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.3rem 1.5rem;">
+                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600; margin:0 0 14px;">معلومات الشركة</p>
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <div>
                         <p style="font-size:0.8rem; color:#9ca3af; margin:0;">القطاع</p>
@@ -1089,13 +1081,10 @@ if st.session_state.get('hist') is not None:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
         with cc2:
             st.markdown(f"""
-            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px;
-                        padding:1.3rem 1.5rem;">
-                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600;
-                           margin:0 0 14px;">مؤشرات مالية</p>
+            <div style="background:white; border:1.5px solid #e2eaf5; border-radius:16px; padding:1.3rem 1.5rem;">
+                <p style="font-size:0.82rem; color:#9ca3af; font-weight:600; margin:0 0 14px;">مؤشرات مالية</p>
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <div>
                         <p style="font-size:0.8rem; color:#9ca3af; margin:0;">نسبة P/E</p>
